@@ -3,20 +3,58 @@
 #pragma once
 
 
-#include "Defines.h"
-#include <type_traits>
+
+#include <cstring>
 
 
-#if __cplusplus <= 201103L
-namespace std
-{
-    template<bool cond, typename Type = void>
-    using enable_if_t = typename std::enable_if<cond, Type>::type;
-}
-#endif
+#include "Definitions.h"
+#include "TypeTraits.h"
+
 
 
 namespace NickSV::Tools {
+
+
+
+
+
+
+
+/*
+ Runtime conversation from [char const *] to [std::basic_string<CharT>]
+*/
+template <typename CharT, typename NoCVCharT = typename std::remove_cv<CharT>::type>
+std::basic_string<NoCVCharT> basic_string_cast(char const *pcszToConvert)
+{
+    std::basic_string<NoCVCharT> bstr;
+    size_t sz = strlen(pcszToConvert);
+    bstr.resize(sz);
+    std::copy(pcszToConvert, pcszToConvert + sz, bstr.begin());
+    return bstr; 
+}
+
+template <> std::string inline basic_string_cast<               char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_cast<         const char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_cast<      volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_cast<const volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // Hope in 13.2+ GCC ver noexcept_expr mangling is impl-ted
@@ -284,24 +322,9 @@ void for_each_exception_safe_last(InputIt first, InputIt last, TryFunctorType tr
 #endif
 
 
-template<typename T, typename = void>
-struct is_equality_comparable : std::false_type
-{ };
-
-template<typename T>
-struct is_equality_comparable<T,
-    typename std::enable_if<
-        true, 
-        decltype(std::declval<T&>() == std::declval<T&>(), (void)0)
-        >::type
-    > : std::true_type
-{
-};
-
-
 } /*END OF NAMESPACES*/
 
 
 
 
-#endif // _NICKSV_VALUELOCK
+#endif // _NICKSV_UTILS

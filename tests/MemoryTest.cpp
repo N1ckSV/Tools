@@ -7,7 +7,7 @@
 
 #define TEST_SETW_VALUE 65
 
-#include "NickSV/Tools/Defines.h"
+#include "NickSV/Tools/Definitions.h"
 #include "NickSV/Tools/Memory.h"
 #include "NickSV/Tools/Testing.h"
 
@@ -15,7 +15,7 @@
 #include <memory>
 #include <sstream>
 
-namespace NSVT = NickSV::Tools;
+namespace NT = NickSV::Tools;
 
 
 
@@ -35,8 +35,8 @@ int NotNull_unspec_type_test()
 		}
 	};
 	Derived d;
-	NSVT::NotNull<Derived*> notNullDerived(&d);
-	NSVT::NotNull<Base*> notNullBase = notNullDerived;
+	NT::NotNull<Derived*> notNullDerived(&d);
+	NT::NotNull<Base*> notNullBase = notNullDerived;
 	TEST_CHECK_STAGE((notNullDerived == notNullBase) && 
 					 (notNullBase == notNullDerived));
 
@@ -58,7 +58,7 @@ int NotNull_unspec_type_test()
 
 
 
-	auto notNull1 = NSVT::MakeNotNull(&d);
+	auto notNull1 = NT::MakeNotNull(&d);
 	TEST_CHECK_STAGE((&d == notNull1) && 
 					 (notNull1 == &d));
 
@@ -73,7 +73,7 @@ int NotNull_unspec_type_test()
 
 
 
-	auto notNull2 = NSVT::MakeNotNull(&d);
+	auto notNull2 = NT::MakeNotNull(&d);
 	//cppcheck-suppress knownConditionTrueFalse
 	TEST_CHECK_STAGE((notNull1 == notNull2) &&
 					 (notNull2 == notNull1) &&
@@ -87,7 +87,7 @@ int NotNull_unspec_type_test()
 
 
 	Derived Variable;
-	NSVT::NotNull<Derived*> notNull3(&Variable);
+	NT::NotNull<Derived*> notNull3(&Variable);
 	TEST_CHECK_STAGE((std::hash<Derived*>{}(&Variable) 
 				  == std::hash<decltype(notNull3)>{}(notNull3)) &&
 				  (std::hash<Derived*>{}(&Variable)
@@ -107,7 +107,7 @@ int NotNull_test()
 	using elem_type = typename std::pointer_traits<InnerType>::element_type;
 	elem_type Variable = value;
 	InnerType pVariable = std::addressof(Variable);
-	NSVT::NotNull<decltype(pVariable)> notNull1(pVariable);
+	NT::NotNull<decltype(pVariable)> notNull1(pVariable);
 	TEST_CHECK_STAGE(pVariable == notNull1);
 
 
@@ -117,9 +117,9 @@ int NotNull_test()
 	try
 	{
 		pVariable = nullptr;
-		NSVT::NotNull<decltype(pVariable)> notNull2(pVariable);
+		NT::NotNull<decltype(pVariable)> notNull2(pVariable);
 	}
-	catch(const NSVT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException& e) { result = true; };
 	TEST_CHECK_STAGE(result);
 	
 
@@ -159,7 +159,7 @@ int NotNull_smart_copyable_test()
 {
 	using elem_type = typename std::pointer_traits<InnerType>::element_type;
 	InnerType pVariable = InnerType(new elem_type(value));
-	NSVT::NotNull<InnerType> notNull1(pVariable);
+	NT::NotNull<InnerType> notNull1(pVariable);
 	TEST_CHECK_STAGE(pVariable == notNull1);
 
 
@@ -169,9 +169,9 @@ int NotNull_smart_copyable_test()
 	try
 	{
 		pVariable = nullptr;
-		NSVT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
+		NT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
 	}
-	catch(const NSVT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException& e) { result = true; };
 	TEST_CHECK_STAGE(result);
 
 
@@ -230,7 +230,7 @@ int NotNull_smart_moveonly_test()
 {
 	using elem_type = typename std::pointer_traits<InnerType>::element_type;
 	InnerType pVariable = InnerType(new elem_type(value));
-	NSVT::NotNull<InnerType> notNull1(std::move(pVariable));
+	NT::NotNull<InnerType> notNull1(std::move(pVariable));
 	//cppcheck-suppress accessMoved
 	TEST_CHECK_STAGE((pVariable == nullptr) && (*notNull1 == value));
 
@@ -241,9 +241,9 @@ int NotNull_smart_moveonly_test()
 	try
 	{
 		pVariable = nullptr;
-		NSVT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
+		NT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
 	}
-	catch(const NSVT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException& e) { result = true; };
 	TEST_CHECK_STAGE(result);
 
 
@@ -283,7 +283,7 @@ int NotNullHash_test()
 	using elem_type = typename std::pointer_traits<InnerType>::element_type;
 	elem_type Variable = value;
 	InnerType pVariable = std::addressof(Variable);
-	NSVT::NotNull<decltype(pVariable)> notNull1(pVariable);
+	NT::NotNull<decltype(pVariable)> notNull1(pVariable);
 	TEST_CHECK_STAGE((std::hash<decltype(pVariable)>{}(pVariable) 
 				  == std::hash<decltype(notNull1)>{}(notNull1)) &&
 				  (std::hash<decltype(pVariable)>{}(pVariable)
@@ -298,7 +298,7 @@ template<class SmartPtr, typename std::pointer_traits<SmartPtr>::element_type va
 int NotNullHash_smart_test()
 {
 	using elem_type = typename std::pointer_traits<SmartPtr>::element_type;
-	NSVT::NotNull<SmartPtr> notNull1(SmartPtr(new elem_type(value)));
+	NT::NotNull<SmartPtr> notNull1(SmartPtr(new elem_type(value)));
 	TEST_CHECK_STAGE(std::hash<SmartPtr>{}(static_cast<SmartPtr&>(notNull1)) 
 				  == std::hash<decltype(notNull1)>{}(notNull1));
 
@@ -310,7 +310,7 @@ int NotNullHash_smart_test()
 template<class Ret, typename ... Args>
 int NotNull_func_test(Ret(*pFun)(Args...), Args... args)
 {
-	NSVT::NotNull<Ret(*)(Args...)> notNullFun(pFun);
+	NT::NotNull<Ret(*)(Args...)> notNullFun(pFun);
 	TEST_CHECK_STAGE(notNullFun == pFun &&
 					((*notNullFun)(args...) == (*pFun)(args...)));
 
@@ -363,8 +363,8 @@ int main()
 
 
 	std::cout << '\n' 
-    << NickSV::Testing::TestsFailed 
+    << NT::Testing::TestsFailed 
     << " subtests failed" << std::endl;
 
-    return NickSV::Testing::TestsFailed;
+    return NT::Testing::TestsFailed;
 }

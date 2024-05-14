@@ -1,9 +1,23 @@
-
-#ifndef _NICKSV_DEFINES
-#define _NICKSV_DEFINES
+/**
+ * @file
+ * @brief Definitions of useful macros
+*/
+#ifndef _NICKSV_DEFINITIONS
+#define _NICKSV_DEFINITIONS
 #pragma once
 
 
+
+/**
+ * @namespace NickSV
+ * @brief Global namespace of Nikita "N1ckSV" Kurchev [<a href="https://github.com/N1ckSV">Github</a>]
+*/
+
+
+/**
+ * @namespace NickSV::Tools
+ * @brief Namespace of N1ckSV's tool library [<a href="https://github.com/N1ckSV/Tools">Github</a>]
+*/
 
 
 //ASSERT STUFF (EXPECT is non-fatal one)
@@ -18,7 +32,15 @@
 #endif
 
 
-#if (__cplusplus >= 201402L)
+#define CPP98_VERSION 199711L
+#define CPP11_VERSION 201103L
+#define CPP14_VERSION 201402L 
+#define CPP17_VERSION 201703L
+#define CPP20_VERSION 202002L
+#define CPP23_VERSION 202302L
+
+
+#if (__cplusplus >= CPP14_VERSION)
 #define CONSTEXPR_SINCE_CPP14 constexpr
 #else
 #define CONSTEXPR_SINCE_CPP14
@@ -101,11 +123,14 @@
 
 
 
+#ifndef NICKSV_TYPE_INTEGRITY_NO_ASSERTION
+/**
+ * @def NICKSV_TYPE_INTEGRITY_NO_ASSERTION
+ * @brief Special define disabling @ref type_integrity_assert()
+*/
+#define NICKSV_TYPE_INTEGRITY_NO_ASSERTION
+#undef  NICKSV_TYPE_INTEGRITY_NO_ASSERTION
+#endif
 
-#define LOCK_GUARD(mut) std::lock_guard<std::mutex> _generated_by_macro_lock_guard(mut)
 
-
-
-
-
-#endif // _NICKSV_DEFINES
+#endif // _NICKSV_DEFINITIONS

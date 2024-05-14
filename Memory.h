@@ -3,7 +3,9 @@
 #pragma once
 
 
-#include "Defines.h"
+#include "Definitions.h"
+
+#include <stdexcept>
 
 // • NICKSV_NOT_NULL_IGNORE - if defined, 
 //   NotNull<T> is just an empty template (using NotNull<T> = T) 
@@ -52,15 +54,14 @@
 namespace NickSV::Tools {
 
 
+struct NotNullException : std::invalid_argument
+{
+    NotNullException() : std::invalid_argument("nullptr given to NotNull wrapper") {};
+};
+
 // Use exception instead of assert() when nullptr given to NotNull wrapper.
 // Useful if you want use NotNull in 
 #ifdef NOT_NULL_USE_EXCEPTIONS
-    
-    #include <stdexcept>
-    struct NotNullException : std::invalid_argument
-    {
-        NotNullException() : std::invalid_argument("nullptr given to NotNull wrapper") {};
-    };
     #define NOT_NULL_POINTER_ASSERT(ptr) do { if(!ptr) { throw NotNullException(); } } while(0); 
     #define NOT_NULL_NOEXCEPT(expr) noexcept(false)
 #else
@@ -107,8 +108,9 @@ namespace details
 
 } // namespace details
 
-//   Movable nullptr assert wrapper for pointer-like types.
-//   Can store nullptr after std::move().
+//   NotNull is NOT STRICT 
+//   movable nullptr assert wrapper for pointer-like types.
+//   Can store nullptr at default initialization and after std::move().
 //   Doing nothing in Release mode by default.
 //
 // • NICKSV_NOT_NULL_IGNORE - if defined, 
@@ -136,8 +138,8 @@ public:
     
     using GetReturnType = details::value_or_reference_return_t<pointer_type>;
 
-    NotNull() = delete;
 
+    NotNull() noexcept : m_ptr(nullptr) {}
 
 
     NotNull(const NotNull& other) : m_ptr(other.m_ptr)
@@ -242,9 +244,11 @@ public:
         return *Get();
     }
 
-
-    // prevents compilation when someone attempts to assign a null pointer constant
+    // Prevented compilation.
+    // Use default NotNull()
     NotNull(std::nullptr_t) = delete;
+
+    // Prevented compilation.
     NotNull& operator=(std::nullptr_t) = delete;
 
     // unwanted operators...pointers only point to single objects!
@@ -458,27 +462,6 @@ template <class T, class TTraits = my_ptr_traits<T>>
 NotNull<T, TTraits> operator+(default_diff_type<T>, const NotNull<T, TTraits>&) = delete;
 
 
-template <class T, 
-    bool = std::is_default_constructible<std::hash<typename T::pointer_type>>::value>
-struct NotNullHash
-{
-    using convert_type = const typename T::pointer_type&;
-    using pointer_type = typename std::remove_cv<typename T::pointer_type>::type;
-    std::size_t operator()(const T& value) const 
-    { 
-        return std::hash<pointer_type>{}(static_cast<convert_type>(value)); 
-    }
-};
-
-template <class T>
-struct NotNullHash<T, false>
-{
-    NotNullHash() = delete;
-    NotNullHash(const NotNullHash&) = delete;
-    NotNullHash& operator=(const NotNullHash&) = delete;
-};
-
-
 
 #else
 
@@ -503,10 +486,29 @@ struct NotNullHash<T, false>
 template<typename T, typename = void>
 using NotNull = T;
 
+
 #endif // NICKSV_NOT_NULL_IGNORE
 
 
+template <class T, 
+    bool = std::is_default_constructible<std::hash<typename T::pointer_type>>::value>
+struct NotNullHash
+{
+    using convert_type = const typename T::pointer_type&;
+    using pointer_type = typename std::remove_cv<typename T::pointer_type>::type;
+    std::size_t operator()(const T& value) const 
+    { 
+        return std::hash<pointer_type>{}(static_cast<convert_type>(value)); 
+    }
+};
 
+template <class T>
+struct NotNullHash<T, false>
+{
+    NotNullHash() = delete;
+    NotNullHash(const NotNullHash&) = delete;
+    NotNullHash& operator=(const NotNullHash&) = delete;
+};
 
 
 
@@ -530,6 +532,9 @@ struct hash<NickSV::Tools::NotNull<PtrT, PtrTraits> >
 }
 
 #endif // NICKSV_NOT_NULL_IGNORE
+
+
+
 
 
 
