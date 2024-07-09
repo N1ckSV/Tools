@@ -7,9 +7,11 @@
 
 #define TEST_SETW_VALUE 65
 
-#include "NickSV/Tools/Definitions.h"
-#include "NickSV/Tools/Memory.h"
-#include "NickSV/Tools/Testing.h"
+#define TEST_IGNORE_PRINT_ON_SUCCESS
+
+#include "Definitions.h"
+#include "Memory.h"
+#include "Testing.h"
 
 
 #include <memory>

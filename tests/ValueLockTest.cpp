@@ -1,11 +1,18 @@
 
+#define TEST_IGNORE_PRINT_ON_SUCCESS
 
-#include "NickSV/Tools/ValueLock.h"
+#define NDEBUG
+
+#define TEST_SETW_VALUE 65
+
+#define TEST_IGNORE_PRINT_ON_SUCCESS
+
+#include "ValueLock.h"
+#include "Testing.h"
 
 #include <iostream>
 #include <vector>
 #include <thread>
-
 
 
 //NOT WORKING
@@ -68,5 +75,7 @@ int value_lock_test()
 
 int main()
 {
-	return 0;
+	std::cout << '\n' << NickSV::Tools::Testing::TestsFailed << " subtests failed" << std::endl;
+    
+    return NickSV::Tools::Testing::TestsFailed;
 }

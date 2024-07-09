@@ -9,18 +9,22 @@ add_executable(MemoryTest
 add_executable(ValueLockTest
     ValueLockTest.cpp
     )
+add_executable(TypeTraitsTest
+    TypeTraitsTest.cpp
+    )
 
-#set_target_properties(MemoryTest ValueLockTest
-#    PROPERTIES
-#    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests"
-#)
+set_target_properties(MemoryTest ValueLockTest TypeTraitsTest
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests"
+)
 
 
-target_include_directories(MemoryTest  PRIVATE ../src ../src/public ../src/common ../include)
-
-target_include_directories(ValueLockTest  PRIVATE ../src ../src/public ../src/common ../include)
+target_include_directories(MemoryTest  PRIVATE ..)
+target_include_directories(ValueLockTest  PRIVATE  ..)
+target_include_directories(TypeTraitsTest  PRIVATE  ..)
 
 add_test(NAME MemoryTest COMMAND MemoryTest)
 add_test(NAME ValueLockTest COMMAND ValueLockTest)
+add_test(NAME TypeTraitsTest COMMAND TypeTraitsTest)
 
 set_tests_properties(ValueLockTest PROPERTIES TIMEOUT 10) 

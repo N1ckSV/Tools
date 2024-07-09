@@ -13,7 +13,8 @@
 
 
 
-namespace NickSV::Tools {
+namespace NickSV {
+namespace Tools {
 
 /** 
  * @class DefaultMatchException
@@ -694,7 +695,7 @@ private:
 };
 
 
-} /*END OF NAMESPACES*/
+}}  /*END OF NAMESPACES*/
 
 
 

@@ -7,12 +7,15 @@
 #include <cstring>
 
 
-#include "Definitions.h"
 #include "TypeTraits.h"
 
 
 
-namespace NickSV::Tools {
+
+
+
+namespace NickSV {
+namespace Tools {
 
 
 
@@ -20,11 +23,14 @@ namespace NickSV::Tools {
 
 
 
-/*
- Runtime conversation from [char const *] to [std::basic_string<CharT>]
+/**
+ * @brief Runtime conversation from [char const *]
+ *        to [std::basic_string<CharT>]
+ * @note 
+ * For compile time 
 */
-template <typename CharT, typename NoCVCharT = typename std::remove_cv<CharT>::type>
-std::basic_string<NoCVCharT> basic_string_cast(char const *pcszToConvert)
+template <typename CharT, typename NoCVCharT = std::remove_cv_t<CharT>>
+std::basic_string<NoCVCharT> basic_string_convert(char const *pcszToConvert)
 {
     std::basic_string<NoCVCharT> bstr;
     size_t sz = strlen(pcszToConvert);
@@ -33,10 +39,10 @@ std::basic_string<NoCVCharT> basic_string_cast(char const *pcszToConvert)
     return bstr; 
 }
 
-template <> std::string inline basic_string_cast<               char, char>(char const * pcszToConvert) { return pcszToConvert; };
-template <> std::string inline basic_string_cast<         const char, char>(char const * pcszToConvert) { return pcszToConvert; };
-template <> std::string inline basic_string_cast<      volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
-template <> std::string inline basic_string_cast<const volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_convert<               char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_convert<         const char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_convert<      volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
+template <> std::string inline basic_string_convert<const volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
 
 
 
@@ -54,11 +60,9 @@ template <> std::string inline basic_string_cast<const volatile char, char>(char
 
 
 
-
-
-
-// Hope in 13.2+ GCC ver noexcept_expr mangling is impl-ted
-// Seems like in GCC 14 they did it. Assumed that other compilers have it.
+// In GCC 14.1 version noexcept_expr mangling is finally impl-ted
+// (otherwise SFINAE noexcept doesn't work here).
+// Assumed that other compilers just have it
 #if !defined(__GNUC__) || (__GNUC__ * 10 + __GNUC_MINOR__ > 132)
 
 
@@ -78,9 +82,9 @@ template <> std::string inline basic_string_cast<const volatile char, char>(char
 //      Exception thrown by catchFunc is ignored
 template<class InputIt, class TryFunctorType, class CatchFunctorType>
 auto for_each_exception_safe(
-    InputIt first, InputIt last, TryFunctorType tryFunc, CatchFunctorType catchFunc) -> typename 
-    std::enable_if<!noexcept(tryFunc(*first)) && 
-    !noexcept(catchFunc(*first)), void>::type
+    InputIt first, InputIt last, TryFunctorType tryFunc, CatchFunctorType catchFunc) -> 
+    std::enable_if_t<!noexcept(tryFunc(*first)) && 
+    !noexcept(catchFunc(*first)), void>
  {
     InputIt var = first;
     try
@@ -118,9 +122,9 @@ auto for_each_exception_safe(
 //      Exception thrown by catchFunc is ignored
 template<class InputIt, class TryFunctorType, class CatchFunctorType>
 auto for_each_exception_safe_last(
-    InputIt first, InputIt last, TryFunctorType tryFunc, CatchFunctorType catchFunc) -> typename 
-    std::enable_if<!noexcept(tryFunc(*first)) && 
-    !noexcept(catchFunc(*first)), void>::type
+    InputIt first, InputIt last, TryFunctorType tryFunc, CatchFunctorType catchFunc) -> 
+    std::enable_if_t<!noexcept(tryFunc(*first)) && 
+    !noexcept(catchFunc(*first)), void>
  {
     InputIt var = first;
     try
@@ -160,9 +164,9 @@ auto for_each_exception_safe_last(
 //      Same exception as tryFunc
 template<class InputIt, class TryUnaryFunc, class CatchUnaryFunc>
 auto for_each_exception_safe(
-    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc catchFunc) -> typename 
-    std::enable_if<!noexcept(tryFunc(*first)) && 
-    noexcept(catchFunc(*first)), void>::type
+    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc catchFunc) -> 
+    std::enable_if_t<!noexcept(tryFunc(*first)) && 
+    noexcept(catchFunc(*first)), void>
 {
     InputIt var = first;
     try
@@ -199,9 +203,9 @@ auto for_each_exception_safe(
 //      Same exception as tryFunc
 template<class InputIt, class TryUnaryFunc, class CatchUnaryFunc>
 auto for_each_exception_safe_last(
-    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc catchFunc) -> typename 
-    std::enable_if<!noexcept(tryFunc(*first)) && 
-    noexcept(catchFunc(*first)), void>::type
+    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc catchFunc) -> 
+    std::enable_if_t<!noexcept(tryFunc(*first)) && 
+    noexcept(catchFunc(*first)), void>
 {
     InputIt var = first;
     try
@@ -233,12 +237,23 @@ auto for_each_exception_safe_last(
 // THROWS: Nothing
 template<class InputIt, class TryUnaryFunc, class CatchUnaryFunc>
 auto for_each_exception_safe(
-    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc catchFunc) noexcept -> typename 
-    std::enable_if<noexcept(tryFunc(*first)), void>::type
+    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc) noexcept -> 
+    std::enable_if_t<noexcept(tryFunc(*first)), void>
 {
     for (; first != last; ++first)
         tryFunc(*first);
 }
+
+
+template<class InputIt, class TryUnaryFunc, class CatchUnaryFunc>
+auto for_each_exception_safe_last(
+    InputIt first, InputIt last, TryUnaryFunc tryFunc, CatchUnaryFunc) noexcept -> 
+    std::enable_if_t<noexcept(tryFunc(*first)), void>
+{
+    for (; first != last; ++first)
+        tryFunc(*first);
+}
+
 
 #else
 
@@ -322,7 +337,7 @@ void for_each_exception_safe_last(InputIt first, InputIt last, TryFunctorType tr
 #endif
 
 
-} /*END OF NAMESPACES*/
+}}  /*END OF NAMESPACES*/
 
 
 

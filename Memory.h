@@ -51,7 +51,8 @@
 
 
 
-namespace NickSV::Tools {
+namespace NickSV {
+namespace Tools {
 
 
 struct NotNullException : std::invalid_argument
@@ -512,7 +513,7 @@ struct NotNullHash<T, false>
 
 
 
-} /*END OF NAMESPACES*/
+}}  /*END OF NAMESPACES*/
 
 
 

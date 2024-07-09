@@ -8,17 +8,6 @@
 
 
 
-/**
- * @namespace NickSV
- * @brief Global namespace of Nikita "N1ckSV" Kurchev [<a href="https://github.com/N1ckSV">Github</a>]
-*/
-
-
-/**
- * @namespace NickSV::Tools
- * @brief Namespace of N1ckSV's tool library [<a href="https://github.com/N1ckSV/Tools">Github</a>]
-*/
-
 
 //ASSERT STUFF (EXPECT is non-fatal one)
 #if defined(NDEBUG)
@@ -32,18 +21,46 @@
 #endif
 
 
-#define CPP98_VERSION 199711L
-#define CPP11_VERSION 201103L
-#define CPP14_VERSION 201402L 
-#define CPP17_VERSION 201703L
-#define CPP20_VERSION 202002L
-#define CPP23_VERSION 202302L
+#define CXX98_VERSION 199711L
+#define CXX11_VERSION 201103L
+#define CXX14_VERSION 201402L 
+#define CXX17_VERSION 201703L
+#define CXX20_VERSION 202002L
+#define CXX23_VERSION 202302L
 
 
-#if (__cplusplus >= CPP14_VERSION)
+#if (__cplusplus >= CXX14_VERSION)
 #define CONSTEXPR_SINCE_CPP14 constexpr
 #else
 #define CONSTEXPR_SINCE_CPP14
+#endif
+
+#if defined(__GNUC__)
+#define COMPILER_AWARE_VALUE(GNU_VAL, MSVC_VAL, OTHER_VAL) GNU_VAL
+#elif defined(_MSC_VER)
+#define COMPILER_AWARE_VALUE(GNU_VAL, MSVC_VAL, OTHER_VAL) MSVC_VAL
+#else
+#define COMPILER_AWARE_VALUE(GNU_VAL, MSVC_VAL, OTHER_VAL) OTHER_VAL
+#endif
+
+
+
+#define _NickSV_TEXT_(text, Type)                                                              \
+             std::is_same<Type, char32_t>::value ? static_cast<const void*> (U"" text)    :    \
+            (std::is_same<Type, char16_t>::value ? static_cast<const void*> (u"" text)    :    \
+            (std::is_same<Type,  wchar_t>::value ? static_cast<const void*> (L"" text)    :    \
+                                                   static_cast<const void*> (    text)))
+                                            
+#ifdef __cpp_lib_char8_t                                                                       
+    #define NickSV_TEXT(text, Type) static_cast<const std::enable_if_t<                                                     \
+                             NickSV::Tools::is_char_v<Type>, std::remove_cv_t<Type>>*>(                                     \
+                             (std::is_same_v<std::remove_cv_t<Type>,  char8_t> ? static_cast<const void*> (u8"" text)   :   \
+                              _NickSV_TEXT_(text, std::remove_cv_t<Type>)))
+#else
+    #define NickSV_TEXT(text, Type) static_cast<const std::enable_if_t<                     \
+                             NickSV::Tools::is_char<Type>::value,                           \
+                             std::remove_cv_t<Type>>*>(                                     \
+                             _NickSV_TEXT_(text, std::remove_cv_t<Type>)) 
 #endif
 
 
@@ -51,11 +68,11 @@
 
 #define DECLARE_COPY(ClassName, prefix, postfix)                      \
         ClassName (const ClassName& lvalRef) postfix;                 \
-        prefix ClassName& operator=(const ClassName& lvalRef) postfix;\
+        prefix ClassName& operator=(const ClassName& lvalRef) postfix \
 
 #define DECLARE_MOVE(ClassName, prefix, postfix)                     \
         ClassName (ClassName && rvalRef) postfix;                    \
-        prefix ClassName& operator=(ClassName && rvalRef) postfix;   \
+        prefix ClassName& operator=(ClassName && rvalRef) postfix    \
 
 #define DECLARE_COPY_DELETE(ClassName)                               \
         DECLARE_COPY(ClassName, NOTHING, = delete)                   \
@@ -70,56 +87,56 @@
         DECLARE_MOVE(ClassName, prefix, = default)                   \
 
 #define DECLARE_COPY_MOVE(ClassName, prefix, postfix)                \
-        DECLARE_COPY(ClassName, prefix, postfix)                     \
+        DECLARE_COPY(ClassName, prefix, postfix);                    \
         DECLARE_MOVE(ClassName, prefix, postfix)                     \
 
 #define DECLARE_RULE_OF_3(ClassName, prefix, postfix)                \
         DECLARE_COPY(ClassName, prefix, postfix);                    \
-        prefix ~ClassName() postfix;                                 \
+        prefix ~ClassName() postfix                                  \
 
 #define DECLARE_RULE_OF_5(ClassName, prefix, postfix)                \
         DECLARE_COPY_MOVE(ClassName, prefix, postfix);               \
-        prefix ~ClassName() postfix;                                 \
+        prefix ~ClassName() postfix                                  \
 
 #define DECLARE_RULE_OF_0_POLYMORPHIC(ClassName, prefix)             \
         DECLARE_COPY_MOVE(ClassName, prefix, = default);             \
-        virtual ~ClassName() = default;                              \
+        virtual ~ClassName() = default                               \
 
 #define DECLARE_RULE_OF_0_NON_POLYMORPHIC(ClassName) \
-        DECLARE_RULE_OF_5(ClassName, NOTHING, = default);
+        DECLARE_RULE_OF_5(ClassName, NOTHING, = default) 
 
 #define DECLARE_RULE_OF_3_DEFAULT(ClassName, prefix) \
-        DECLARE_RULE_OF_3(ClassName, prefix, = default);
+        DECLARE_RULE_OF_3(ClassName, prefix, = default) 
 
 #define DECLARE_RULE_OF_5_DEFAULT(ClassName, prefix) \
-        DECLARE_RULE_OF_5(ClassName, prefix, = default);
+        DECLARE_RULE_OF_5(ClassName, prefix, = default) 
 
 #define DECLARE_RULE_OF_3_VIRTUAL(ClassName, postfix) \
-        DECLARE_RULE_OF_3(ClassName, virtual, postfix);
+        DECLARE_RULE_OF_3(ClassName, virtual, postfix) 
 
 #define DECLARE_RULE_OF_5_VIRTUAL(ClassName, postfix) \
-        DECLARE_RULE_OF_5(ClassName, virtual, postfix);
+        DECLARE_RULE_OF_5(ClassName, virtual, postfix) 
 
 #define DECLARE_RULE_OF_3_DELETE(ClassName) \
-        DECLARE_COPY(ClassName, NOTHING, = delete); //Destructor ignored
+        DECLARE_COPY(ClassName, NOTHING, = delete)  //Destructor ignored
 
 #define DECLARE_RULE_OF_5_DELETE(ClassName) \
-        DECLARE_COPY_MOVE(ClassName, NOTHING, = delete); //Destructor ignored
+        DECLARE_COPY_MOVE(ClassName, NOTHING, = delete)  //Destructor ignored
 
 #define DECLARE_COPY_MOVE_DEFAULT(ClassName, prefix) \
-        DECLARE_COPY_MOVE(ClassName, prefix, = default);
+        DECLARE_COPY_MOVE(ClassName, prefix, = default) 
 
 #define DECLARE_COPY_VIRTUAL(ClassName, postfix) \
-        DECLARE_COPY(ClassName, virtual, postfix);
+        DECLARE_COPY(ClassName, virtual, postfix) 
 
 #define DECLARE_COPY_MOVE_VIRTUAL(ClassName, postfix) \
-        DECLARE_COPY_MOVE(ClassName, virtual, postfix);
+        DECLARE_COPY_MOVE(ClassName, virtual, postfix) 
 
 #define DECLARE_RULE_OF_3_VIRTUAL_DEFAULT(ClassName) \
-        DECLARE_RULE_OF_3_DEFAULT(ClassName, virtual);
+        DECLARE_RULE_OF_3_DEFAULT(ClassName, virtual) 
 
 #define DECLARE_RULE_OF_5_VIRTUAL_DEFAULT(ClassName) \
-        DECLARE_RULE_OF_5_DEFAULT(ClassName, virtual);
+        DECLARE_RULE_OF_5_DEFAULT(ClassName, virtual) 
 
 
 
@@ -131,6 +148,19 @@
 #define NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 #undef  NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 #endif
+
+
+
+// namespaces below are for Doxygen 
+
+///@brief Global namespace of Nikita "N1ckSV" Kurchev [<a href="https://github.com/N1ckSV">Github</a>]
+namespace NickSV {
+
+/// @brief Namespace of N1ckSV's tool library [<a href="https://github.com/N1ckSV/Tools">Github</a>]
+namespace Tools {}}
+
+
+
 
 
 #endif // _NICKSV_DEFINITIONS

@@ -15,7 +15,21 @@
 // EXAMPLE BELOW
 // EXAMPLE BELOW
 
-namespace NickSV::Tools::Testing {
+namespace NickSV {
+namespace Tools {
+namespace Testing {
+
+
+#ifndef TEST_IGNORE_PRINT_ON_SUCCESS
+/**
+ * @def TEST_IGNORE_PRINT_ON_SUCCESS
+ * @brief Special define disabling @ref TEST_VERIFY
+ *        to print succeeded tests
+*/
+#define TEST_IGNORE_PRINT_ON_SUCCESS
+#undef  TEST_IGNORE_PRINT_ON_SUCCESS
+#endif
+
 
 // define TEST_SETW_VALUE with your value for pretty text alignment
 #ifndef TEST_SETW_VALUE
@@ -25,37 +39,50 @@ namespace NickSV::Tools::Testing {
 // Insert it inside the test's function body after each test stage with its result 
 // returns if the result is false (EXAMPLE BELOW)
 #define TEST_CHECK_STAGE(result) ++(NickSV::Tools::Testing::FailedStage);                  \
-                                 if(!(result)) return NickSV::Tools::Testing::FailedStage; \
+                                 if(!(result)) return NickSV::Tools::Testing::FailedStage
 
 #define TEST_SUCCESS 0
+
+#define TEST_PRINT_RESULT(testName)                                                 \
+        std::cout << std::setw(TEST_SETW_VALUE) << std::string(testName) << ": "
+
+#ifndef TEST_IGNORE_PRINT_ON_SUCCESS 
+    #define TEST_PRINT_PASSED(testName)                                             \
+            TEST_PRINT_RESULT(testName) << "PASSED" << std::endl                       
+#else
+    #define TEST_PRINT_PASSED(testName) ((void)0)
+#endif 
 
 // Executes the test and prints the result,
 // also handles an exception and treats it as a failure (EXAMPLE BELOW)
 #define TEST_VERIFY(test)                                                           \
-    static_assert(std::is_convertible<decltype(test), size_t>::value);              \
-    std::cout << std::setw(TEST_SETW_VALUE) << std::string(#test) <<  ": ";         \
+    static_assert(std::is_convertible<decltype(test), size_t>::value,               \
+     "test function returns type that is not converible to size_t");                \
     try {                                                                           \
-        NickSV::Tools::Testing::FailedStage = 0;                                           \
+        NickSV::Tools::Testing::FailedStage = 0;                                    \
         size_t testOut = test; /*test called here*/                                 \
         if(!testOut) {                                                              \
-            std::cout << std::string("PASSED") << std::endl;                        \
+            TEST_PRINT_PASSED(#test);                                               \
         }                                                                           \
         else {                                                                      \
-            ++NickSV::Tools::Testing::TestsFailed;                                         \
-            size_t stageOut = NickSV::Tools::Testing::FailedStage ?                        \
-                NickSV::Tools::Testing::FailedStage : testOut;                             \
-            std::cout  << std::string("FAILED on stage ")                           \
-            << stageOut << std::endl;                                               \
+            ++NickSV::Tools::Testing::TestsFailed;                                  \
+            size_t stageOut = NickSV::Tools::Testing::FailedStage ?                 \
+                NickSV::Tools::Testing::FailedStage : testOut;                      \
+            TEST_PRINT_RESULT(#test)                                                \
+                << "FAILED on stage "                                               \
+                << stageOut << std::endl;                                           \
         }                                                                           \
     } catch (const std::exception& ex) {                                            \
-        ++NickSV::Tools::Testing::TestsFailed;                                             \
-        std::cout << "Exception thrown on stage "                                   \
-            << ++NickSV::Tools::Testing::FailedStage                                       \
+        ++NickSV::Tools::Testing::TestsFailed;                                      \
+        TEST_PRINT_RESULT(#test)                                                    \
+            << "FAILED on stage "                                                   \
+            << ++NickSV::Tools::Testing::FailedStage                                \
             <<  ": " << ex.what() << std::endl;                                     \
     } catch (...) {                                                                 \
-        ++NickSV::Tools::Testing::TestsFailed;                                             \
-        std::cout << "Unknown exception thrown on stage "                           \
-            << ++NickSV::Tools::Testing::FailedStage << std::endl;                         \
+        ++NickSV::Tools::Testing::TestsFailed;                                      \
+        TEST_PRINT_RESULT(#test)                                                    \
+            << "Unknown exception thrown on stage "                                 \
+            << ++NickSV::Tools::Testing::FailedStage << std::endl;                  \
     }                                                                               \
 
 // How many tests are failed for each TEST_VERIFY()  (EXAMPLE BELOW)
@@ -64,7 +91,7 @@ size_t TestsFailed = 0;
 // At what stage the last test is failed in call of TEST_VERIFY()  (EXAMPLE BELOW)
 size_t FailedStage = 0;
 
-}
+}}}  /*END OF NAMESPACES*/
 
 //USAGE EXAMPLE
 #if false
