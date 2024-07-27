@@ -196,6 +196,7 @@ namespace details
         template<typename U>
         static constexpr int test(...);
     public:
+        has_members_impl() = default;
         static constexpr bool value = std::is_void<decltype(test<Inheritance>(nullptr))>::value;
     };
 
@@ -208,6 +209,7 @@ namespace details
         template<typename U>
         static constexpr int test(...);
     public:
+        has_bases_impl() = default;
         static constexpr bool value = std::is_void<decltype(test<Inheritance>(nullptr))>::value;
     };
 
@@ -220,6 +222,7 @@ namespace details
         template<typename U>
         static constexpr int test(...);
     public:
+        has_2_bases_impl() = default;
         //cppcheck-suppress unusedStructMember
         static constexpr bool value = std::is_void<decltype(test<Inheritance>(nullptr))>::value;
     };

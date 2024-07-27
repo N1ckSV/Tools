@@ -21,7 +21,7 @@ namespace NT = NickSV::Tools;
 
 
 
-int NotNull_unspec_type_test()
+static int NotNull_unspec_type_test()
 {
 	constexpr static int value = 1337;
 	struct Base 
@@ -321,7 +321,7 @@ int NotNull_func_test(Ret(*pFun)(Args...), Args... args)
 	return TEST_SUCCESS;
 }
 
-int example()
+static int example()
 {
 	return 1337;
 }
@@ -332,12 +332,12 @@ struct E
 	E(int _a) : a(_a) {};
 };
 
-bool operator==(const E& l, const E& r)
+static bool operator==(const E& l, const E& r)
 {
 	return (l.a == r.a);
 }
 
-E adv(char, void*, E&)
+static E adv(char, void*, E&)
 {
 	return E(1337);
 }
@@ -345,8 +345,6 @@ E adv(char, void*, E&)
 
 int main()
 {
-	std::cout << '\n';
-
 	TEST_VERIFY(NotNull_unspec_type_test());
 
 	TEST_VERIFY((NotNull_test<int*, 1337>()));
@@ -363,10 +361,7 @@ int main()
 	TEST_VERIFY((NotNull_smart_moveonly_test<std::unique_ptr<int>, 1337>()))
 	TEST_VERIFY((NotNullHash_smart_test<std::unique_ptr<int>, 1337>()))
 
-
-	std::cout << '\n' 
-    << NT::Testing::TestsFailed 
-    << " subtests failed" << std::endl;
+    std::cout << '\n' << NickSV::Tools::Testing::TestsFailed << " subtests failed\n";
 
     return NT::Testing::TestsFailed;
 }

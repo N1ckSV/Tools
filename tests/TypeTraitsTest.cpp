@@ -23,10 +23,10 @@ class DoNotHaveEqualOp
 {
 };
 
-bool operator==(const HaveEqualOp&, 
+static bool operator==(const HaveEqualOp&, 
                 const HaveEqualOp&) {return true;}
 
-bool operator==(const DoNotHaveEqualOp&, 
+static bool operator==(const DoNotHaveEqualOp&, 
                 const DoNotHaveEqualOp&) = delete;
 
 template<class T>
@@ -60,7 +60,8 @@ int main(int, const char **)
     TEST_VERIFY(!is_equ_cmprble<HaveEqualOp>::value);
 
 
-    std::cout << '\n' << Tools::Testing::TestsFailed << " subtests failed" << std::endl;
+    std::cout << '\n' << NickSV::Tools::Testing::TestsFailed << " subtests failed\n";
+
     
     return Tools::Testing::TestsFailed;
 }

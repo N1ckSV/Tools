@@ -7,61 +7,43 @@
 #include "Definitions.h"
 #include "Utils.h"
 
+
+#include <condition_variable>
 #include <mutex>
 #include <type_traits>
-#include <stdexcept>
+#include <list>
+#include <array>
+#include <algorithm>
+#include <iostream>
+#include <exception>
+
 
 
 
 namespace NickSV {
 namespace Tools {
 
-/** 
- * @class DefaultMatchException
- * 
- * @brief Thrown by ValueLock's methods.
- * 
- * Thrown when value matches defaultValue.
-*/
-struct DefaultMatchException : std::invalid_argument
-{
-    DefaultMatchException() : std::invalid_argument(
-        "Value matches defaultValue") {};
-};
+
+
+
 
 /** 
- * @class ValueException
+ * Error when:
  * 
- * @brief Thrown by ValueLock's methods.
+ * 1) Too many threads are locking ValueLock object,
+ *    change slotsCount to how many of them are potentially
+ *    can simultaneously lock a value in ValueLock.
  * 
- * Thrown when value has not yet been locked.
-*/
-struct ValueException : std::invalid_argument
-{
-    ValueException() : std::invalid_argument(
-        "Value has not yet been locked") {};
-};
-
-/** 
- * @class ConcurrencyException
- * 
- * @brief Thrown by ValueLock's methods.
- * 
- * Thrown when one of two things happened:
- * 1) too many threads are locking ValueLock object,
- *    change threadCount to how many of them are potentially
- *    can simultaneously lock a value in ValueLock;
- * 
- * 2) one of the threads locked two or more values
+ * 2) One of the threads locked two or more values
  *    in one ValueLock object at the same time 
  *    (which is not allowed, see LockAll() for total lock)
  *    and current thread did not find a free slot to lock its value
  *    and threw this exception.
 */
-struct ConcurrencyException : std::runtime_error
-{
-    ConcurrencyException() : std::runtime_error("Invalid function call: all ValueLock slots are busy") {};
-};
+#define CONCURRENCY_ERROR_TEXT "Invalid function call: all ValueLock slots are busy"
+
+
+#define INVALID_VALUE_ERROR_TEXT "Invalid function call: value has not yet been locked"
 
 /**
  * @class ValueLock
@@ -71,117 +53,171 @@ struct ConcurrencyException : std::runtime_error
  *        across multiple threads.
  * 
  * @tparam ValueT type of value to lock
- * @tparam threadCount how many threads are
- *         handling OBJECTS binded to ValueT
- * @tparam defaultValue unresolved value that
- *         are typically not used in these OBJECTS
- *         (e.g 0, NULL, nullptr, '\0').
- *         ValueT{} by default.
+ * @tparam slotCount max number of OBJECTS binded to ValueT
+ * that can potentially and simultaneously be handled by threads
+ * (for an indefinite number of needed slots see @ref DynamicValueLock)
  *
- * 
- *  Imagine you have std::map<UserID, User> mapUsers,
- *  so mapUsers is OBJECT listed above and UserID is ValueT.
- *  And multiple (threadCount) threads can change mapUsers 
- *  by adding, removing, changing Users.
- *  So the first thought that came to my mind was to make 
- *  std::map<UserID, std::mutex> mapMutexes and
- *  lock needed UserID before changing mapUsers:
- *  @code{.cpp} 
- *      mapMutexes[id].lock();
- *      mapUsers[id].doSomething();
- *      mapMutexes[id].unlock();
- *  @endcode
- *  But this is too heavy, especially when you need to lock
- *  "all" UserIDs. So ValueLock helps in this situation:
- *  @code{.cpp}
- *      // ValueLock<UserID, threadsCount> usersLock declared before
- *      // with lifetime is about the same as mapUsers
- *      usersLock.Lock(id);
- *      mapUsers[id].doSomething();
- *      usersLock.Unlock(id);
- *  @endcode
- *  or RAII-style
- *  @code{.cpp}
- *  // ValueLock<UserID, threadsCount> usersLock declared before
- *  // with lifetime is about the same as mapUsers
- *  {
- *      // Same work as std::lock_guard
- *      ValueLockGuard<decltype(usersLock)> lockGuard(usersLock, id);
- *      mapUsers[id].doSomething();
- *  }
- *  @endcode
- *  More info in methods description.
- * 
- * 
- *  @todo add link to pictures with ValueLock resolved coding
+ * @example
+ * Imagine you have std::map<ID, User> mapUsers,
+ * so mapUsers is OBJECT listed above and ID is ValueT.
+ * And multiple threads can change mapUsers 
+ * by adding, removing, changing Users.
+ * So the first thought that came to my mind was to make 
+ * std::map<ID, std::mutex> mapMutexes and
+ * lock needed ID before changing mapUsers:
+ * @code{.cpp} 
+ *     mapMutexes[id].lock();
+ *     mapUsers.at(id).doSomething();
+ *     mapMutexes[id].unlock();
+ * @endcode
+ * But this is too heavy, especially when you need to lock
+ * "all" IDs. So ValueLock helps in this situation:
+ * @code{.cpp}
+ *     // ValueLock<ID, slotCount> usersLock declared before
+ *     // with lifetime is about the same as mapUsers
+ *     usersLock.Lock(id);
+ *     mapUsers.at(id).doSomething();
+ *     usersLock.Unlock(id);
+ * @endcode
+ * or RAII-style
+ * @code{.cpp}
+ *     // ValueLock<ID, slotCount> usersLock declared before
+ *     // with lifetime is about the same as mapUsers
+ *     {
+ *         // Same work as std::lock_guard
+ *         ValueLockGuard<decltype(usersLock)> lockGuard(usersLock, id);
+ *         mapUsers.at(id).doSomething();
+ *     }
+ * @endcode
+ * More info in methods description.
+ *
 */
-template<typename ValueT, size_t threadCount, ValueT defaultValue = ValueT{}>
+template<typename ValueT, size_t slotCount>
 class ValueLock
 {
 public:
+
+    static_assert(std::is_default_constructible<ValueT>::value, "ValueT must be default constructible");
+    static_assert(     is_equality_comparable<ValueT>::value, "ValueT must has equality operator overloaded");
+    static_assert(std::is_copy_constructible<ValueT>::value, "ValueT must be copy constructible");
+    static_assert(std::is_copy_assignable<ValueT>::value, "ValueT must be copy assignable");
+
     using ValueType = ValueT;
 
-    static_assert(     is_equality_comparable<ValueType>::value, "ValueType must has equality operator overloaded");
-    static_assert(std::is_copy_assignable<ValueType>::value, "ValueType must be copy assignable");
+    struct ValueMutex
+    {
+        ValueMutex() = default;
+        DECLARE_COPY_DELETE(ValueMutex);
+        explicit ValueMutex(const ValueType& val) : Value(val) {}
+        ValueMutex(ValueMutex&& rvalRef)
+            : Value(std::move(rvalRef.Value)),
+            RefCount(std::move(rvalRef.RefCount)) {}
 
+        ValueMutex& operator=(ValueMutex&& rvalRef)
+        {
+            Value = std::move(rvalRef.Value);
+            RefCount = std::move(rvalRef.RefCount);
+            return *this;
+        }
+
+        std::mutex Mutex;
+        ValueType Value;
+        uint32_t RefCount = 0;
+    };
+
+    using Container = std::array<ValueMutex, slotCount>;
 
     /**
      * @class Unlocker
      * 
-     * @brief Functor that calls Unlock(value)
+     * @brief Unary functor that calls Unlock(value)
      *        on given pointer to ValueLock
      *        with value.
      * 
-     * Useful when applied with RAII-style:
-     *  std::unique_ptr<ValueLock, ValueLock::Unlocker>
+     * @warning 
+     * Invoking throws the same exception as ValueLock::Unlock(value) if there is no stack unwinding,
+     * otherwise printing error message to std::cerr and returns
      * 
     */
     class Unlocker
     {
-        static_assert(noexcept(std::declval<ValueLock>().UnlockNoExcept(std::declval<ValueType>())), 
-            "UnlockNoExcept is not noexcept");
-        ValueType m_Value = defaultValue;
+        ValueType m_Value;
     public:
         Unlocker() = default;
         DECLARE_RULE_OF_5_DEFAULT(Unlocker, NOTHING);
         explicit Unlocker(const ValueType& value) : m_Value(value) {}
-        inline void operator()(ValueLock* pValueLock) const noexcept
+
+        /**
+         * @throws 
+         * Same exception as ValueLock::Unlock(value) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(ValueLock* pValueLock) const
         {
-            if(m_Value != defaultValue)
-                pValueLock->UnlockNoExcept(m_Value);
+            try { pValueLock->Unlock(m_Value); }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "Unlocker::operator() caught std::exception in call of ValueLock::Unlock()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
         }
     };
-
 
     /**
-     * @class AllUnlocker
+     * @class UnlockerAll
      * 
-     * @brief Functor that conditionally calls
-     *        UnlockAll() or UnlockAll(value)
-     *        on given pointer to ValueLock.
+     * @brief Unary functor that calls UnlockAll([value])
+     *        on given pointer to ValueLock
+     *        with value.
      * 
-     * Useful when applied with RAII-style:
-     *  std::unique_ptr<ValueLock, ValueLock::AllUnlocker>
+     * @warning 
+     * Invoking throws the same exception as ValueLock::UnlockAll([value]) if there is no stack unwinding,
+     * otherwise printing error message to std::cerr and returns
      * 
     */
-    class AllUnlocker
-    {
-        static_assert(noexcept(std::declval<ValueLock>().UnlockAll()), "UnlockAll is not noexcept");
-        static_assert(noexcept(std::declval<ValueLock>().UnlockAllNoExcept(std::declval<ValueType>())),
-            "UnlockAllNoExcept is not noexcept");
-        ValueType m_keepLockedValue = defaultValue;
+    class UnlockerAll
+    { 
+        std::unique_ptr<ValueType> m_upKeepLockedValue;
     public:
-        AllUnlocker() = default;
-        DECLARE_RULE_OF_5_DEFAULT(AllUnlocker, NOTHING);
-        explicit AllUnlocker(const ValueType& keepLockedValue) : m_keepLockedValue(keepLockedValue) {}
-        inline void operator()(ValueLock* pValueLock) const noexcept
+        UnlockerAll() = default;
+        DECLARE_RULE_OF_5_DEFAULT(UnlockerAll, NOTHING);
+        explicit UnlockerAll(const ValueType& keepLockedValue) 
+            : m_upKeepLockedValue(new ValueType(keepLockedValue)) {}
+
+        /**
+         * @throws 
+         * Same exception as ValueLock::UnlockAll([value]) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(ValueLock* pValueLock) const
         {
-            if(m_keepLockedValue == defaultValue)
-                pValueLock->UnlockAll();
-            else
-                pValueLock->UnlockAllNoExcept(m_keepLockedValue);
+            try 
+            {
+                if(m_upKeepLockedValue) 
+                    pValueLock->UnlockAll(*m_upKeepLockedValue);
+                else 
+                    pValueLock->UnlockAll();
+            }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "UnlockerAll::operator() caught std::exception in call of ValueLock::UnlockAll()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
         }
     };
+
     
     // Move only non-virtual
     DECLARE_COPY_DELETE(ValueLock);
@@ -191,195 +227,66 @@ public:
 
     void Lock(const ValueType& value) noexcept(false)
     {
-        if(value == defaultValue)
-            throw DefaultMatchException();
-
-        ValueMutex* pMutexToLock = m_aValueMutexes;
-        ValueMutex const * const pEnd = m_aValueMutexes + threadCount;
-        ValueMutex* pDefaultMutex = nullptr;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx); 
-            for (; pMutexToLock < pEnd; ++pMutexToLock)
-            {
-                if(value == pMutexToLock->Value) break;
-                if(defaultValue == pMutexToLock->Value && pDefaultMutex == nullptr) pDefaultMutex = pMutexToLock;
-            }
-            if(pMutexToLock == pEnd)
-            {
-                if(pDefaultMutex == nullptr)
-                    throw ConcurrencyException();
-
-                pDefaultMutex->Value = value;
-                pMutexToLock = pDefaultMutex;
-            }
-            ++pMutexToLock->RefCount;
-
-        }   // lock_guard scope end
-        pMutexToLock->Mutex.lock();
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        auto iterMutex = FindBusySlot(value);
+        if(iterMutex == m_aValueMutexes.end())
+        {
+            iterMutex = FindEmptySlot();
+            NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), CONCURRENCY_ERROR_TEXT);
+            iterMutex->Value = value;
+        }      
+        ++(iterMutex->RefCount);
+        uLock.unlock();
+        iterMutex->Mutex.lock();
     }
-    // Locks every slot/value
-    //
-    // THROWS: 
-    // the same exception that std::mutex::Lock() throws and
-    // unlocks everything that was successfully locked.
+
+    /**
+     * @brief Locks every slot/value
+     * 
+     * @throws
+     * the same exception that std::mutex::lock() throws and
+     * unlocks everything that was successfully locked.
+     */
     void LockAll() noexcept(false)
     {
-        for_each_exception_safe(m_aValueMutexes, m_aValueMutexes + threadCount,
+        for_each_exception_safe(m_aValueMutexes.begin(), m_aValueMutexes.end(),
         [](ValueMutex& mut) { mut.Mutex.lock(); }, 
         [](ValueMutex& mut) noexcept { mut.Mutex.unlock(); });
     }
-    // Locks every slot/value in ValueLock.
-    // Use it only if you are locked exactly one value already
-    // (that you should specify by alreadyLockedValue param).
-    //
-    // THROWS:
-    // the same exception that std::mutex::Lock() throws and
-    // unlocks everything that was successfully locked.
-    void LockAll(const ValueType& alreadyLockedValue) noexcept(false)
-    {
-        if(alreadyLockedValue == defaultValue)
-            throw DefaultMatchException();
-
-        ValueMutex * pIgnoreMutex = nullptr;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx); 
-            for (ValueMutex* pVar = m_aValueMutexes; pVar < m_aValueMutexes + threadCount; ++pVar)
-            {
-                if(pVar->Value != alreadyLockedValue)
-                    continue;
-                // In debug mode checks all values and if at least two of them equals alreadyLockedValue - assertion failed.
-                // In non debug mode if alreadyLockedValue found - for-loop breaks
-                #if defined(NDEBUG)
-                    //cppcheck-suppress unmatchedSuppression
-                    //cppcheck-suppress incorrectStringBooleanError
-                    NICKSV_ASSERT(!pIgnoreMutex,
-                        "alreadyLockedValue found in two slots, probably ValueLock implementation is broken");
-                    pIgnoreMutex = pVar;
-                #else 
-                    pIgnoreMutex = pVar;
-                    break;
-                #endif
-            }
-            if(!pIgnoreMutex)
-                throw ValueException();
-            pIgnoreMutex->Mutex.unlock();
-        }   // lock_guard scope end
-        LockAll();
-    }
-
+    
     /**
      * @brief Unlocks given value.
      * 
-     * For noexcept verison see UnlockNoExcept().
-     * 
      * @param value is value to unlock
      * 
-     * @exception - @ref DefaultMatchException : value == defaultValue;
-     * @exception - @ref ValueException : value has not yet been locked;
-     * @exception - Same as std::mutex::lock(): can be thrown 
-     *              by inner std::mutex (rare case)
+     * @throws - Same as std::mutex::lock(): can be thrown 
+     *           by inner std::mutex (rare case)
+     * 
+     * @warning ValueLock::Lock(value) must be called 
+     * by the current thread of execution, 
+     * otherwise, the behavior is undefined.
     */
     void Unlock(const ValueType& value)  noexcept(false)
     {
-        if(value == defaultValue)
-            throw DefaultMatchException();
-
-        ValueMutex * pMutexToUnlock = nullptr;
-        ValueMutex const * const pEnd = m_aValueMutexes + threadCount;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx);
-            for (ValueMutex * pVar = m_aValueMutexes; pVar < pEnd; ++pVar) 
-            {
-                if(pVar->Value != value)
-                    continue;
-                // In debug mode checks all values and if at least two of them equals parameter value - assertion failed.
-                // In non debug mode if parameter value found - for-loop breaks
-                #if defined(NDEBUG)
-                    //cppcheck-suppress unmatchedSuppression
-                    //cppcheck-suppress incorrectStringBooleanError
-                    NICKSV_ASSERT(!pMutexToUnlock, 
-                        "value found in two slots, probably ValueLock implementation is broken");
-                    pMutexToUnlock = pVar;
-                #else 
-                    pMutexToUnlock = pVar;
-                    break;
-                #endif
-            }
-
-            if(pMutexToUnlock == pEnd)
-                throw ValueException();
-            
-            NICKSV_ASSERT(pMutexToUnlock->RefCount, 
-                "Unlock Value found in slots but RefCount is 0, probably ValueLock implementation is broken");
-            --(pMutexToUnlock->RefCount);
-            if(pMutexToUnlock->RefCount == 0)
-                pMutexToUnlock->Value = defaultValue;
-            pMutexToUnlock->Mutex.unlock();
-        }   // lock_guard scope end
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        auto iterMutex = FindBusySlot(value);
+        NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), INVALID_VALUE_ERROR_TEXT);
+        --(iterMutex->RefCount);
+        iterMutex->Mutex.unlock();
     }
 
-    /**
-     * @brief Unlocks given value without exceptions.
-     * 
-     * Doing nothing at conditions when Unlock() throws.
-     * 
-     * @param value value to unlock
-     * 
-     * @warning - Rare potential program termination:
-     *            exception may be thrown by inner 
-     *            std::mutex and the program supposed
-     *            to terminate in this case
-     * 
-     * @todo maybe noexcept is redundant here
-    */
-    void UnlockNoExcept(const ValueType& value) noexcept
-    {
-        if(value == defaultValue)
-            return;
-
-        ValueMutex * pMutexToUnlock = nullptr;
-        ValueMutex const * const pEnd = m_aValueMutexes + threadCount;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx);  // if m_mtx throws - prog termination 
-            for (ValueMutex * pVar = m_aValueMutexes; pVar < pEnd; ++pVar) 
-            {
-                if(pVar->Value != value)
-                    continue;
-                // In debug mode checks all values and if at least two of them equals parameter value - assertion failed.
-                // In non debug mode if parameter value found - for-loop breaks
-                #if defined(NDEBUG)
-                    //cppcheck-suppress unmatchedSuppression
-                    //cppcheck-suppress incorrectStringBooleanError
-                    NICKSV_ASSERT(!pMutexToUnlock, 
-                        "value found in two slots, probably ValueLock implementation is broken");
-                    pMutexToUnlock = pVar;
-                #else 
-                    pMutexToUnlock = pVar;
-                    break;
-                #endif
-            }
-
-            if(pMutexToUnlock == pEnd)
-                return;
-            
-            //cppcheck-suppress incorrectStringBooleanError
-            NICKSV_ASSERT(pMutexToUnlock->RefCount, 
-                "Unlock Value found in slots but RefCount is 0, probably ValueLock implementation is broken");
-            --(pMutexToUnlock->RefCount);
-            if(pMutexToUnlock->RefCount == 0)
-                pMutexToUnlock->Value = defaultValue;
-            pMutexToUnlock->Mutex.unlock();
-        }   // lock_guard scope end
-    }
-
+    
     /**
      * @brief Unlocks all values.
      * 
+     * @warning ValueLock::LockAll() must be called 
+     * by the current thread of execution, 
+     * otherwise, the behavior is undefined.
     */
     void UnlockAll() noexcept
     {
-        for (ValueMutex* pVar = m_aValueMutexes; pVar < m_aValueMutexes + threadCount; ++pVar)
-            pVar->Mutex.unlock();
+        for (auto& vMutex: m_aValueMutexes)
+            vMutex.Mutex.unlock();
     }
 
     /**
@@ -389,144 +296,61 @@ public:
      * 
      * @param keepLockedValue value to keep locked
      * 
-     * @exception - @ref DefaultMatchException : value == defaultValue, thrown without unlocking;
-     * @exception - @ref ConcurrencyException : thrown after unlocking every value;
-     * @exception - Same as std::mutex::lock(): can be thrown 
-     *              by inner std::mutex (rare case)
+     * @throws - Same as std::mutex::lock(): can be thrown 
+     * by inner std::mutex (rare case)
+     * 
+     * @warning ValueLock::LockAll() must be called 
+     * by the current thread of execution, 
+     * otherwise, the behavior is undefined.
      * 
     */
     void UnlockAll(const ValueType& keepLockedValue) noexcept(false)
     {
-        if(keepLockedValue == defaultValue)
-            throw DefaultMatchException();
-
-        ValueMutex const * pKeepLockedMutex = nullptr;
-        ValueMutex * pDefaultMutex = nullptr;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx); 
-            for (ValueMutex* pVar = m_aValueMutexes; pVar < m_aValueMutexes + threadCount; ++pVar)
-            {
-                if(!pDefaultMutex && !pKeepLockedMutex && (pVar->Value == defaultValue)) {
-                    pDefaultMutex = pVar;
-                    continue; }
-
-                if(pVar->Value != keepLockedValue) {
-                    pVar->Mutex.unlock();
-                    continue; }
-                
-                NICKSV_ASSERT(!pKeepLockedMutex, "keepLockedValue found in two slots, probably ValueLock implementation is broken");
-                pKeepLockedMutex = pVar;
-            }
-            if(pDefaultMutex && pKeepLockedMutex)
-                pDefaultMutex->Mutex.unlock();
-            else if(pDefaultMutex && !pKeepLockedMutex)
-            {
-                pDefaultMutex->Value = keepLockedValue;
-                ++(pDefaultMutex->RefCount);
-            }
-            else if (!pKeepLockedMutex)
-                throw ConcurrencyException();
-        }   // lock_guard scope end
+        auto iterMutex = FindBusySlot(keepLockedValue);
+        if(iterMutex == m_aValueMutexes.end())
+        {
+            iterMutex = FindEmptySlot();
+            NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), CONCURRENCY_ERROR_TEXT);
+            iterMutex->Value = keepLockedValue;
+        }
+        ++(iterMutex->RefCount); 
+        for (auto& vMutex: m_aValueMutexes)
+        {
+            if(&vMutex != &(*iterMutex))
+                vMutex.Mutex.unlock();
+        }
     }
 
-    /**
-     * @brief Unlocks all values except given one without exceptions.
-     * 
-     * @param keepLockedValue value to keep locked
-     * 
-     * @warning - Rare potential program termination:
-     *            exception may be thrown by inner 
-     *            std::mutex and the program supposed
-     *            to terminate in this case
-     *
-     * @todo maybe noexcept is redundant here
-    */
-    void UnlockAllNoExcept(const ValueType& keepLockedValue) noexcept
-    {
-        if(keepLockedValue == defaultValue)
-            return;
-
-        ValueMutex const * pKeepLockedMutex = nullptr;
-        ValueMutex * pDefaultMutex = nullptr;
-        {   // lock_guard scope begin
-            std::lock_guard<std::mutex> lock_g(m_mtx); 
-            for (ValueMutex* pVar = m_aValueMutexes; pVar < m_aValueMutexes + threadCount; ++pVar)
-            {
-                if(!pDefaultMutex && !pKeepLockedMutex && (pVar->Value == defaultValue)) {
-                    pDefaultMutex = pVar;
-                    continue; }
-
-                if(pVar->Value != keepLockedValue) {
-                    pVar->Mutex.unlock();
-                    continue; }
-                
-                NICKSV_ASSERT(!pKeepLockedMutex, "keepLockedValue found in two slots, probably ValueLock implementation is broken");
-                pKeepLockedMutex = pVar;
-            }
-            if(pDefaultMutex && pKeepLockedMutex)
-                pDefaultMutex->Mutex.unlock();
-            else if(pDefaultMutex && !pKeepLockedMutex)
-            {
-                pDefaultMutex->Value = keepLockedValue;
-                ++(pDefaultMutex->RefCount);
-            }
-            else if (!pKeepLockedMutex)
-                return;
-        }   // lock_guard scope end
-    }
 
     bool TryLock(const ValueType& value)  noexcept(false)
     {
-        if(value == defaultValue)
-            throw DefaultMatchException();
-
-        ValueMutex* pMutexToLock = m_aValueMutexes;
-        ValueMutex const * const pEnd = m_aValueMutexes + threadCount;
-        ValueMutex* pDefaultMutex = nullptr;
-        {   // lock_guard code block begin
-            std::lock_guard<std::mutex> lock_g(m_mtx); 
-            while(pMutexToLock < pEnd)
-            {
-                if(value == pMutexToLock->Value) break;
-                if(!pDefaultMutex && defaultValue == pMutexToLock->Value) pDefaultMutex = pMutexToLock;
-                ++pMutexToLock;
-            }
-            if(pMutexToLock == pEnd)
-            {
-                if(!pDefaultMutex)
-                    throw ConcurrencyException();
-
-                pDefaultMutex->Value = value;
-                pMutexToLock = pDefaultMutex;
-            }
-            ++(pMutexToLock->RefCount);
-            auto result = pMutexToLock->Mutex.try_lock();
-            if(!result)
-            {
-                --pMutexToLock->RefCount;
-                if(pMutexToLock->RefCount == 0)
-                    pMutexToLock->Value = defaultValue;
-            }
-            return result;
-        }   // lock_guard code block end
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        auto iterMutex = FindBusySlot(value);
+        if(iterMutex == m_aValueMutexes.end())
+        {
+            iterMutex = FindEmptySlot();
+            NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), CONCURRENCY_ERROR_TEXT);
+            iterMutex->Value = value;
+        }      
+        ++(iterMutex->RefCount);
+        auto isLocked = iterMutex->Mutex.try_lock();
+        if(!isLocked)
+            --(iterMutex->RefCount);
+        return isLocked;
     }
-    
-    inline static constexpr size_t GetSlotsCount() { return threadCount; }
-
-    inline static constexpr ValueType GetDefaultValue() { return defaultValue; }
 
 private:
-    struct ValueMutex
+    inline auto FindEmptySlot() -> typename Container::iterator
     {
-        // Move only
-        DECLARE_COPY_DELETE(ValueMutex);
-        DECLARE_MOVE_DEFAULT(ValueMutex, NOTHING);
-        ValueMutex() = default;
-        std::mutex Mutex;
-        ValueType Value = defaultValue;
-        uint32_t RefCount = 0;
-    };
-    ValueMutex m_aValueMutexes[threadCount];
+        return std::find_if(m_aValueMutexes.begin(), m_aValueMutexes.end(), 
+                [](const ValueMutex & mutex) noexcept { return mutex.RefCount == 0; });
+    }
+    inline auto FindBusySlot(const ValueType& value) -> typename Container::iterator
+    {
+        return std::find_if(m_aValueMutexes.begin(), m_aValueMutexes.end(), 
+                [&value](const ValueMutex & mutex) noexcept { return (value == mutex.Value) && (mutex.RefCount > 0); });
+    }
+    Container m_aValueMutexes;
     std::mutex m_mtx;
 };
 
@@ -538,7 +362,7 @@ private:
  *        Was made for benchmarking purpose.
  * 
 */
-template<typename ValueT, size_t threadCount, ValueT defaultValue>
+template<typename ValueT, size_t slotCount>
 class FakeValueLock
 {
 public:
@@ -556,30 +380,71 @@ public:
     public:
         Unlocker() = default;
         DECLARE_RULE_OF_5_DEFAULT(Unlocker, NOTHING);
-        explicit Unlocker(const ValueType&) : Unlocker() {}
-        inline void operator()(FakeValueLock* pFakeValueLock) const noexcept
+        explicit Unlocker(const ValueType& value) {}
+
+        /**
+         * @throws 
+         * Same exception as FakeValueLock::Unlock(value) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(FakeValueLock* pValueLock) const
         {
-            pFakeValueLock->UnlockNoExcept(defaultValue);
+            try { pValueLock->Unlock(ValueType{}); }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "Unlocker::operator() caught std::exception in call of DynamicValueLock::Unlock()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
         }
     };
 
     /**
-     * @class AllUnlocker
+     * @class UnlockerAll
      * 
-     * @brief Same as ValueLock::AllUnlocker,
+     * @brief Same as ValueLock::UnlockerAll,
      *        but for FakeValueLock
+     * 
     */
-    class AllUnlocker
-    {
-        ValueType m_keepLockedValue = defaultValue;
+    class UnlockerAll
+    { 
+        bool haveKeepLockedValue = false;
     public:
-        AllUnlocker() = default;
-        DECLARE_RULE_OF_5_DEFAULT(AllUnlocker, NOTHING);
-        explicit AllUnlocker(const ValueType& keepLockedValue) : m_keepLockedValue(keepLockedValue) {}
-        inline void operator()(FakeValueLock* pFakeValueLock) const noexcept
+        UnlockerAll() = default;
+        DECLARE_RULE_OF_5_DEFAULT(UnlockerAll, NOTHING);
+        explicit UnlockerAll(const ValueType& keepLockedValue) 
+            : haveKeepLockedValue(true) {}
+
+        /**
+         * @throws 
+         * Same exception as ValueLock::UnlockAll([value]) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(FakeValueLock* pValueLock) const
         {
-            if(m_keepLockedValue == defaultValue)
-                pFakeValueLock->UnlockAll();
+            try 
+            {
+                if(haveKeepLockedValue) 
+                    pValueLock->UnlockAll(ValueType{});
+                else 
+                    pValueLock->UnlockAll();
+            }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "UnlockerAll::operator() caught std::exception in call of DynamicValueLock::UnlockAll()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
         }
     };
     
@@ -590,36 +455,310 @@ public:
     FakeValueLock() = default;
 
     void Lock(const ValueType& value) noexcept(false) {  m_mtx.lock(); }
-    void LockAll()   noexcept(false) { m_mtx.lock(); }
-    void LockAll(const ValueType& alreadyLockedValue)  noexcept(false) {}
+    void LockAll() noexcept(false) { m_mtx.lock(); }
 
     void Unlock(const ValueType& value)  noexcept(false) { m_mtx.unlock(); }
-    void UnlockNoExcept(const ValueType& value)  noexcept { m_mtx.unlock(); }
     void UnlockAll() noexcept { m_mtx.unlock(); }
     void UnlockAll(const ValueType& keepLockedValue) noexcept(false) {}
-    void UnlockAllNoExcept(const ValueType& keepLockedValue) noexcept {}
 
     bool TryLock(const ValueType& value)  noexcept(false) { return m_mtx.try_lock(); }
 
-    inline static constexpr size_t GetSlotsCount() { return threadCount; }
-    inline static constexpr ValueType GetDefaultValue() { return defaultValue; }
 private:
     std::mutex m_mtx;
+};
+
+
+template<typename ValueT>
+class DynamicValueLock
+{
+public:
+
+    static_assert(std::is_default_constructible<ValueT>::value, "ValueT must be default constructible");
+    static_assert(     is_equality_comparable<ValueT>::value, "ValueT must has equality operator overloaded");
+    static_assert(std::is_copy_constructible<ValueT>::value, "ValueT must be copy constructible");
+    static_assert(std::is_copy_assignable<ValueT>::value, "ValueT must be copy assignable");
+
+    using ValueType = ValueT;
+
+    struct ValueMutex
+    {
+        ValueMutex() = default;
+        DECLARE_COPY_DELETE(ValueMutex);
+        explicit ValueMutex(const ValueType& val) : Value(val) {}
+        ValueMutex(ValueMutex&& rvalRef)
+            : Value(std::move(rvalRef.Value)),
+            RefCount(std::move(rvalRef.RefCount)) {}
+
+        ValueMutex& operator=(ValueMutex&& rvalRef)
+        {
+            Value = std::move(rvalRef.Value);
+            RefCount = std::move(rvalRef.RefCount);
+            return *this;
+        }
+
+        std::mutex Mutex;
+        ValueType Value;
+        uint32_t RefCount = 0;
+    };
+
+    using Container = std::list<ValueMutex>;
+
+
+    /**
+     * @class Unlocker
+     * 
+     * @brief Unary functor that calls Unlock(value)
+     *        on given pointer to DynamicValueLock
+     *        with value.
+     * 
+     * @warning 
+     * Invoking throws the same exception as DynamicValueLock::Unlock(value) if there is no stack unwinding,
+     * otherwise printing error message to std::cerr and returns
+     * 
+    */
+    class Unlocker
+    {
+        ValueType m_Value;
+    public:
+        Unlocker() = default;
+        DECLARE_RULE_OF_5_DEFAULT(Unlocker, NOTHING);
+        explicit Unlocker(const ValueType& value) : m_Value(value) {}
+
+        /**
+         * @throws 
+         * Same exception as DynamicValueLock::Unlock(value) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(DynamicValueLock* pValueLock) const
+        {
+            try { pValueLock->Unlock(m_Value); }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "Unlocker::operator() caught std::exception in call of DynamicValueLock::Unlock()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
+        }
+    };
+
+    /**
+     * @class UnlockerAll
+     * 
+     * @brief Unary functor that calls UnlockAll([value])
+     *        on given pointer to DynamicValueLock
+     *        with value.
+     * 
+     * @warning 
+     * Invoking throws the same exception as DynamicValueLock::UnlockAll([value]) if there is no stack unwinding,
+     * otherwise printing error message to std::cerr and returns
+     * 
+    */
+    class UnlockerAll
+    { 
+        std::unique_ptr<ValueType> m_upKeepLockedValue;
+    public:
+        UnlockerAll() = default;
+        DECLARE_RULE_OF_5_DEFAULT(UnlockerAll, NOTHING);
+        explicit UnlockerAll(const ValueType& keepLockedValue) 
+            : m_upKeepLockedValue(new ValueType(keepLockedValue)) {}
+
+        /**
+         * @throws 
+         * Same exception as DynamicValueLock::UnlockAll([value]) if there is no stack unwinding,
+         * otherwise printing error message to std::cerr and returns
+         */
+        inline void operator()(DynamicValueLock* pValueLock) const
+        {
+            try 
+            {
+                if(m_upKeepLockedValue) 
+                    pValueLock->UnlockAll(*m_upKeepLockedValue);
+                else 
+                    pValueLock->UnlockAll();
+            }
+            catch(const std::exception& e)
+            {
+                #ifdef __cpp_lib_uncaught_exceptions
+                if(!std::uncaught_exceptions()) throw;
+                #else
+                if(!std::uncaught_exception()) throw;
+                #endif
+                std::cerr << "UnlockerAll::operator() caught std::exception in call of DynamicValueLock::UnlockAll()"
+                             "during stack unwinding, it won't be rethrown. std::exception::what(): "
+                          << e.what() << std::endl;
+            }
+        }
+    };
+
+
+
+    
+    // Move only non-virtual
+    DECLARE_COPY_DELETE(DynamicValueLock);
+    DECLARE_MOVE_DEFAULT(DynamicValueLock, NOTHING);
+
+    DynamicValueLock() = default;
+
+    void Lock(const ValueType& value) noexcept(false)
+    {
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        m_cvLockAllWaiter.wait(uLock, [this]{ return !m_bIsLockingAll; });
+        auto iterMutex = FindSlot(value);
+        if(iterMutex == m_listValueMutexes.end())
+            iterMutex = TakeSlot(value);
+        else
+            ++(iterMutex->RefCount);
+        uLock.unlock();
+        iterMutex->Mutex.lock();
+    }
+    
+    /**
+     * @brief Locks every slot/value
+     */
+    void LockAll() noexcept(false)
+    {
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        m_cvLockAllWaiter.wait(uLock, [this]{ return !m_bIsLockingAll; });
+        m_bIsLockingAll = true;
+        m_cvEmptyListWaiter.wait(uLock, [this]{ return m_listValueMutexes.empty(); });
+    }
+
+
+    /**
+     * @brief Unlocks given value.
+     * 
+     * @param value is value to unlock
+     * 
+     * @exception - Same as std::mutex::lock(): can be thrown 
+     *              by inner std::mutex (rare case)
+     * 
+     * @warning DynamicValueLock::Lock(value) must
+     * be called  by the current thread of execution, 
+     * otherwise, the behavior is undefined.
+     * 
+    */
+    void Unlock(const ValueType& value)  noexcept(false)
+    {
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        auto iterMutex = FindSlot(value);
+        NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), INVALID_VALUE_ERROR_TEXT);
+        LeaveSlotAndUnlock(iterMutex);
+        if(m_listValueMutexes.empty())
+            m_cvEmptyListWaiter.notify_one();
+    }
+
+    /**
+     * @brief Unlocks all values.
+     * 
+     * @warning DynamicValueLock::LockAll() must
+     * be called  by the current thread of execution, 
+     * otherwise, the behavior is undefined.
+     * 
+    */
+    void UnlockAll() noexcept
+    {
+        NICKSV_ASSERT(m_bIsLockingAll, CONCURRENCY_ERROR_TEXT);
+        NICKSV_ASSERT(m_listValueMutexes.empty(), 
+            "m_listValueMutexes not empty at UnlockAll() call, probably DynamicValueLock implementation is broken");
+        m_bIsLockingAll = false;
+        m_cvLockAllWaiter.notify_all();
+    }
+
+
+    /**
+     * @brief Unlocks all values except given one.
+     * 
+     * For noexcept verison see UnlockAllNoExcept().
+     * 
+     * @param keepLockedValue value to keep locked
+     * 
+     * @exception - Same as std::mutex::lock(): can be thrown 
+     *              by inner std::mutex (rare case)
+     * 
+     * @warning DynamicValueLock::LockAll() must
+     * be called  by the current thread of execution, 
+     * otherwise, the behavior is undefined.
+     * 
+    */
+    void UnlockAll(const ValueType& keepLockedValue) noexcept(false)
+    {
+        NICKSV_ASSERT(m_bIsLockingAll, CONCURRENCY_ERROR_TEXT);
+        NICKSV_ASSERT(m_listValueMutexes.empty(), 
+            "m_listValueMutexes not empty at UnlockAll(value) call, probably DynamicValueLock implementation is broken");
+        TakeSlot(keepLockedValue)->Mutex.lock();
+        m_bIsLockingAll = false;
+        m_cvLockAllWaiter.notify_all();
+    }
+
+    bool TryLock(const ValueType& value)  noexcept(false)
+    {
+        std::unique_lock<std::mutex> uLock(m_mtx);
+        m_cvLockAllWaiter.wait(uLock, [this]{ return !m_bIsLockingAll; });
+        auto iterMutex = FindSlot(value);
+        if(iterMutex == m_listValueMutexes.end())
+            iterMutex = TakeSlot(value);
+        else
+            ++(iterMutex->RefCount);
+        auto isLocked = iterMutex->Mutex.try_lock();
+        if(!isLocked) 
+            LeaveSlot(iterMutex);
+        return isLocked;
+    }
+
+private:
+    inline auto FindSlot(const ValueType& value) noexcept -> typename Container::iterator
+    {
+        return std::find_if(m_listValueMutexes.begin(), m_listValueMutexes.end(), 
+                [&value](const ValueMutex & mutex) noexcept { return value == mutex.Value; });
+    }
+    inline auto TakeSlot(const ValueType& value) -> typename Container::iterator
+    {
+        m_listValueMutexes.push_back(ValueMutex(value));
+        auto iter = m_listValueMutexes.end();
+        --iter; ++iter->RefCount;
+        return iter;
+    }
+    bool LeaveSlot(typename Container::iterator iter)
+    {
+        NICKSV_ASSERT(iter->RefCount, "Leaving ValueMutex slot with RefCount == 0, probably DynamicValueLock implementation is broken");
+        bool erase = !(--(iter->RefCount));
+        if(erase) 
+            m_listValueMutexes.erase(iter);
+        return erase;
+    }
+    inline bool LeaveSlotAndUnlock(typename Container::iterator iter)
+    {
+        iter->Mutex.unlock();
+        return LeaveSlot(iter);
+    }
+    std::list<ValueMutex> m_listValueMutexes;
+    std::mutex m_mtx;
+    std::condition_variable m_cvLockAllWaiter;
+    std::condition_variable m_cvEmptyListWaiter;
+    volatile bool m_bIsLockingAll = false;
 };
 
 
 template<typename LockType>
 struct is_value_lock : std::false_type {};
 
-template<typename ValueT, size_t threadCount, ValueT defValue>
-struct is_value_lock<ValueLock<ValueT, threadCount, defValue>> : std::true_type {};
+template<typename ValueT, size_t threadCount>
+struct is_value_lock<ValueLock<ValueT, threadCount>> : std::true_type {};
 
-template<typename ValueT, size_t threadCount, ValueT defValue>
-struct is_value_lock<FakeValueLock<ValueT, threadCount, defValue>> : std::true_type {};
+template<typename ValueT, size_t threadCount>
+struct is_value_lock<FakeValueLock<ValueT, threadCount>> : std::true_type {};
 
-#if __cplusplus > 201103L
+template<typename ValueT>
+struct is_value_lock<DynamicValueLock<ValueT>> : std::true_type {};
+
+#ifdef __cpp_variable_templates
 template<typename LockType>
-inline static constexpr bool is_value_lock_v = is_value_lock<LockType>::value;
+static constexpr bool is_value_lock_v = is_value_lock<LockType>::value;
 #endif
 
 
@@ -627,7 +766,7 @@ template<typename LockT>
 class ValueLockGuard final
 {
 public:
-    static_assert(is_value_lock<LockT>::value, "LockT should be ValueLock/FakeValueLock");
+    static_assert(is_value_lock<LockT>::value, "LockT should be ValueLock/DynamicValueLock/FakeValueLock");
     using LockType = LockT;
     using ValueType = typename LockType::ValueType;
 
@@ -642,11 +781,11 @@ private:
     const ValueType m_value;
 };
 
+
 template<typename LockT>
 class ValueLockAllGuard final
 {
 public:
-    static_assert(is_value_lock<LockT>::value, "LockT should be ValueLock/FakeValueLock");
     using LockType = LockT;
     using ValueType = typename LockType::ValueType;
     
@@ -658,40 +797,29 @@ public:
     { 
         m_rLock.LockAll();
     }
-    // alreadyLockedValue can't be ValueLock's defaultValue (exception)
-    ValueLockAllGuard(LockType& lock, const ValueType& alreadyLockedValue) noexcept(false) :
-        m_rLock(lock), m_alreadyLockedValue(alreadyLockedValue) 
-    {
-        m_rLock.LockAll(m_alreadyLockedValue);
-    }
 
-    // alreadyLockedValue and keepLockedValue can't be LockType's defaultValue (exception)
-    ValueLockAllGuard(LockType& lock, const ValueType& alreadyLockedValue, const ValueType& keepLockedValue) noexcept(false) :
-        m_rLock(lock), m_alreadyLockedValue(alreadyLockedValue), m_keepLockedValue(keepLockedValue) 
+    ValueLockAllGuard(LockType& lock, const ValueType& keepLockedValue) noexcept(false) 
+        : m_rLock(lock), m_upKeepLockedValue(new ValueType(keepLockedValue))
     {
-        if(m_keepLockedValue == LockType::GetDefaultValue() || 
-           m_alreadyLockedValue == LockType::GetDefaultValue())
-            throw DefaultMatchException();
-
-        m_rLock.LockAll(m_alreadyLockedValue);
+        m_rLock.LockAll();
     }
     
-    ~ValueLockAllGuard() noexcept
-    { 
-        typename LockType::AllUnlocker{m_keepLockedValue}(&m_rLock);
+    ~ValueLockAllGuard()
+    {
+        if(m_upKeepLockedValue) 
+            typename LockType::UnlockerAll{*m_upKeepLockedValue}(&m_rLock);
+        else 
+            typename LockType::UnlockerAll{}(&m_rLock);
     }
 
-    // setting keepLockedValue to LockType::GetDefaultValue() 
-    // means that destructor ~ValueLockAllGuard() will unlock all values
     void SetKeepLockedValue(const ValueType& keepLockedValue) noexcept
     {
-        m_keepLockedValue = keepLockedValue;
+        m_upKeepLockedValue = std::unique_ptr<ValueType>(new ValueType(keepLockedValue));
     }
 
 private:
     LockType& m_rLock;
-    const ValueType m_alreadyLockedValue = LockType::GetDefaultValue();
-    ValueType m_keepLockedValue = LockType::GetDefaultValue();
+    std::unique_ptr<ValueType> m_upKeepLockedValue;
 };
 
 

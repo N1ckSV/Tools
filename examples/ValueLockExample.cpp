@@ -1,14 +1,16 @@
 
 #include <iostream>
 #include <thread>
-#include "ValueLock.h"
+#include <cstring>
+#include <vector>
+#include "..\ValueLock.h"
 
+template<class LockT, size_t threadC>
 void value_lock_example()
 {
 	using namespace std::chrono;
-    const size_t threadC = 10;
     std::thread threads[threadC];
-    NickSV::Tools::ValueLock<uint32_t, threadC, 500> vLock;
+    LockT vLock;
     uint32_t value = 10;
 	std::cout << "Same value: " << std::endl;
     for (size_t i = 0; i < threadC; ++i)
@@ -64,153 +66,52 @@ void value_lock_example()
         });
     }
     for (size_t i = 0; i < threadC; ++i)
-	{
         threads[i].join();
-	}
 }
 
-struct fake_mutex
-{
-    void lock() {};
-    void unlock() {};
-};
-
+template<class LockT, size_t threadC>
 void value_lock_all_example()
 {
 	using namespace std::chrono;
-    const size_t threadC = 10;
     std::thread threads[threadC];
-    NickSV::Tools::ValueLock<uint32_t, threadC, 500> vLock;
+    LockT vLock;
     uint32_t value = 10;
-	std::mutex inputMutex;
     srand(time(0));
-	std::cout << "\n\n\n\nRandom values with lock(val) -> lock_all(val) -> unlock_all(val) -> unlock(val)\n";
-	for (size_t iq = 0; iq < threadC; ++iq)
-    {
-		int i = rand() % threadC;
-        threads[iq] = std::thread([&vLock, &inputMutex, iq, i]()
-        {
-            {
-            VALUE_LOCK_GUARD(vLock, i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
-            }
-
-            {
-            VALUE_LOCK_GUARD(vLock, i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
-            }
-
-            {
-            VALUE_LOCK_GUARD(vLock, i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
-            }
-        });
-    }
-    for (size_t i = 0; i < threadC; ++i)
-	{
-        threads[i].join();
-	}
 
     std::cout << "\n\nRandom values with lock_all() -> unlock_all(val) -> unlock(val)\n";
     for (size_t iq = 0; iq < threadC; ++iq)
     {
 		int i = rand() % threadC;
-        threads[iq] = std::thread([&vLock, &inputMutex, iq, i]()
+        threads[iq] = std::thread([&vLock, iq, i]()
         {
             vLock.LockAll();
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
+            vLock.UnlockAll(i);
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.Unlock(i);
-			inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
+            vLock.Unlock(i);
             std::this_thread::sleep_for(milliseconds(i+1));
 
             vLock.LockAll();
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
+            vLock.UnlockAll(i);
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.Unlock(i);
-			inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
+            vLock.Unlock(i);
             std::this_thread::sleep_for(milliseconds(i+1));
 
             vLock.LockAll();
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.UnlockAll(i);
-            inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on all values except " << i << std::endl;
-			inputMutex.unlock();
+            vLock.UnlockAll(i);
             std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.Unlock(i);
-			inputMutex.lock();
 			std::cout << "thread " << iq << " has finished working on value " << i << std::endl;
-			inputMutex.unlock();
+            vLock.Unlock(i);
             std::this_thread::sleep_for(milliseconds(i+1));
         });
     }
@@ -219,58 +120,34 @@ void value_lock_all_example()
         threads[i].join();
 	}
 	
-    std::cout << "\n\nRandom values with lock(val) -> lock_all(val) -> unlock_all()\n";
+
+    std::cout << "\n\nlock_all() -> unlock_all()\n";
     for (size_t iq = 0; iq < threadC; ++iq)
     {
 		int i = rand() % threadC;
-        threads[iq] = std::thread([&vLock, &inputMutex, iq, i]()
-        { 
-            vLock.Lock(i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
+        threads[iq] = std::thread([&vLock, iq, i]()
+        {
+            vLock.LockAll();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
+			std::cout << "thread " << iq << " has finished working on all values" << std::endl;
             vLock.UnlockAll();
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
 
-            vLock.Lock(i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
+   
+            vLock.LockAll();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
+			std::cout << "thread " << iq << " has finished working on all values" << std::endl;
             vLock.UnlockAll();
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
 
-            vLock.Lock(i);
-			inputMutex.lock();
-			std::cout << "thread " << iq << " has started working on value " << i << std::endl;
-			inputMutex.unlock();
-            std::this_thread::sleep_for(milliseconds(i+1));
-            vLock.LockAll(i);
-            inputMutex.lock();
+
+            vLock.LockAll();
 			std::cout << "thread " << iq << " has started working on all values" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
+			std::cout << "thread " << iq << " has finished working on all values" << std::endl;
             vLock.UnlockAll();
-            inputMutex.lock();
-			std::cout << "thread " << iq << " has finished working on all values except" << std::endl;
-			inputMutex.unlock();
             std::this_thread::sleep_for(milliseconds(i+1));
         });
     }
@@ -278,9 +155,8 @@ void value_lock_all_example()
 	{
         threads[i].join();
 	}
+    
 }
-
-#include <vector>
 
 struct A
 {
@@ -295,30 +171,24 @@ struct A
     }
 };
 
-int main()
+int main(int argc, char *argv[])
 {
-    value_lock_example();
-    value_lock_all_example();
 
-    //std::vector<A> vec = {{1}, {2}, {3}, {4}, {5}, {6}, {7}};
-    //try{
-    //NickSV::Tools::for_each_exception_safe(vec.begin(), vec.end(), 
-    //[](A& a) 
-    //{
-    //    a.throwFunc();
-    //    a.val += 10;
-    //    
-    //},
-    //[](A& a) 
-    //{
-    //    a.val -= 10;
-    //    a.throwFunc();
-    //});
-    //}
-    //catch (...) {}
+    constexpr uint32_t threadCount = 10;
+    if(argc == 1 || strcmp(argv[1], "dynamic")) // select static or dynamic
+    {        
+        std::cout << "\n\nStatic ValueLock selected:\n\n";
+        value_lock_example<NickSV::Tools::ValueLock<uint32_t, threadCount>, threadCount>();
+        value_lock_all_example<NickSV::Tools::ValueLock<uint32_t, threadCount>, threadCount>();
+    }
+    else
+    {
+        std::cout << "\n\nDynamicValueLock selected:\n\n";
+        value_lock_example<NickSV::Tools::DynamicValueLock<uint32_t>, threadCount>();
+        value_lock_all_example<NickSV::Tools::DynamicValueLock<uint32_t>, threadCount>();
+    }
 
-    //int dummy;
-    //std::cin >> dummy;
+    std::cout << "\n\n\nExample is finished!\nExample is finished!\nExample is finished!" << std::endl;
 
 
     return 0;

@@ -6,7 +6,12 @@
 #define _NICKSV_DEFINITIONS
 #pragma once
 
-
+#define CXX98_VERSION 199711L
+#define CXX11_VERSION 201103L
+#define CXX14_VERSION 201402L 
+#define CXX17_VERSION 201703L
+#define CXX20_VERSION 202002L
+#define CXX23_VERSION 202302L
 
 
 //ASSERT STUFF (EXPECT is non-fatal one)
@@ -20,13 +25,6 @@
     #define NICKSV_EXPECT(exp, msg) (void(0))
 #endif
 
-
-#define CXX98_VERSION 199711L
-#define CXX11_VERSION 201103L
-#define CXX14_VERSION 201402L 
-#define CXX17_VERSION 201703L
-#define CXX20_VERSION 202002L
-#define CXX23_VERSION 202302L
 
 
 #if (__cplusplus >= CXX14_VERSION)
@@ -44,14 +42,13 @@
 #endif
 
 
-
 #define _NickSV_TEXT_(text, Type)                                                              \
              std::is_same<Type, char32_t>::value ? static_cast<const void*> (U"" text)    :    \
             (std::is_same<Type, char16_t>::value ? static_cast<const void*> (u"" text)    :    \
             (std::is_same<Type,  wchar_t>::value ? static_cast<const void*> (L"" text)    :    \
                                                    static_cast<const void*> (    text)))
                                             
-#ifdef __cpp_lib_char8_t                                                                       
+#ifdef __cpp_char8_t                                                                       
     #define NickSV_TEXT(text, Type) static_cast<const std::enable_if_t<                                                     \
                              NickSV::Tools::is_char_v<Type>, std::remove_cv_t<Type>>*>(                                     \
                              (std::is_same_v<std::remove_cv_t<Type>,  char8_t> ? static_cast<const void*> (u8"" text)   :   \
@@ -66,41 +63,41 @@
 
 #define NOTHING
 
-#define DECLARE_COPY(ClassName, prefix, postfix)                      \
-        ClassName (const ClassName& lvalRef) postfix;                 \
-        prefix ClassName& operator=(const ClassName& lvalRef) postfix \
+#define DECLARE_COPY(ClassName, prefix, postfix)                              \
+        ClassName (const ClassName& lvalRef) postfix;                         \
+        prefix ClassName& operator=(const ClassName& lvalRef) postfix         \
 
-#define DECLARE_MOVE(ClassName, prefix, postfix)                     \
-        ClassName (ClassName && rvalRef) postfix;                    \
-        prefix ClassName& operator=(ClassName && rvalRef) postfix    \
+#define DECLARE_MOVE(ClassName, prefix, postfix)                              \
+        ClassName (ClassName && rvalRef) noexcept postfix;                    \
+        prefix ClassName& operator=(ClassName && rvalRef) noexcept postfix    \
 
-#define DECLARE_COPY_DELETE(ClassName)                               \
-        DECLARE_COPY(ClassName, NOTHING, = delete)                   \
+#define DECLARE_COPY_DELETE(ClassName)                                        \
+        DECLARE_COPY(ClassName, NOTHING, = delete)                            \
 
-#define DECLARE_MOVE_DELETE(ClassName)                               \
-        DECLARE_MOVE(ClassName, NOTHING, = delete)                   \
+#define DECLARE_MOVE_DELETE(ClassName)                                        \
+        DECLARE_MOVE(ClassName, NOTHING, = delete)                            \
 
-#define DECLARE_COPY_DEFAULT(ClassName, prefix)                      \
-        DECLARE_COPY(ClassName, prefix, = default)                   \
+#define DECLARE_COPY_DEFAULT(ClassName, prefix)                               \
+        DECLARE_COPY(ClassName, prefix, = default)                            \
 
-#define DECLARE_MOVE_DEFAULT(ClassName, prefix)                      \
-        DECLARE_MOVE(ClassName, prefix, = default)                   \
+#define DECLARE_MOVE_DEFAULT(ClassName, prefix)                               \
+        DECLARE_MOVE(ClassName, prefix, = default)                            \
 
-#define DECLARE_COPY_MOVE(ClassName, prefix, postfix)                \
-        DECLARE_COPY(ClassName, prefix, postfix);                    \
-        DECLARE_MOVE(ClassName, prefix, postfix)                     \
+#define DECLARE_COPY_MOVE(ClassName, prefix, postfix)                         \
+        DECLARE_COPY(ClassName, prefix, postfix);                             \
+        DECLARE_MOVE(ClassName, prefix, postfix)                              \
 
-#define DECLARE_RULE_OF_3(ClassName, prefix, postfix)                \
-        DECLARE_COPY(ClassName, prefix, postfix);                    \
-        prefix ~ClassName() postfix                                  \
+#define DECLARE_RULE_OF_3(ClassName, prefix, postfix)                         \
+        DECLARE_COPY(ClassName, prefix, postfix);                             \
+        prefix ~ClassName() postfix                                           \
 
-#define DECLARE_RULE_OF_5(ClassName, prefix, postfix)                \
-        DECLARE_COPY_MOVE(ClassName, prefix, postfix);               \
-        prefix ~ClassName() postfix                                  \
-
-#define DECLARE_RULE_OF_0_POLYMORPHIC(ClassName, prefix)             \
-        DECLARE_COPY_MOVE(ClassName, prefix, = default);             \
-        virtual ~ClassName() = default                               \
+#define DECLARE_RULE_OF_5(ClassName, prefix, postfix)                         \
+        DECLARE_COPY_MOVE(ClassName, prefix, postfix);                        \
+        prefix ~ClassName() postfix                                           \
+         
+#define DECLARE_RULE_OF_0_POLYMORPHIC(ClassName, prefix)                      \
+        DECLARE_COPY_MOVE(ClassName, prefix, = default);                      \
+        virtual ~ClassName() = default                                        \
 
 #define DECLARE_RULE_OF_0_NON_POLYMORPHIC(ClassName) \
         DECLARE_RULE_OF_5(ClassName, NOTHING, = default) 

@@ -86,10 +86,10 @@ namespace Testing {
     }                                                                               \
 
 // How many tests are failed for each TEST_VERIFY()  (EXAMPLE BELOW)
-size_t TestsFailed = 0;
+int TestsFailed = 0;
 
 // At what stage the last test is failed in call of TEST_VERIFY()  (EXAMPLE BELOW)
-size_t FailedStage = 0;
+int FailedStage = 0;
 
 }}}  /*END OF NAMESPACES*/
 
@@ -140,7 +140,7 @@ int main()
 
     TEST_VERIFY(test_bar());
 
-    if( ! Testing::FailedStage)
+    if( ! Testing::FailedStage) // FailedStage refreshes each TEST_VERIFY
     {
         // Some code if test_bar() is succeded
     }  
