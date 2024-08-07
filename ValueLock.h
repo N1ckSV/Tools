@@ -57,7 +57,7 @@ namespace Tools {
  * that can potentially and simultaneously be handled by threads
  * (for an indefinite number of needed slots see @ref DynamicValueLock)
  *
- * @example
+ * For example:
  * Imagine you have std::map<ID, User> mapUsers,
  * so mapUsers is OBJECT listed above and ID is ValueT.
  * And multiple threads can change mapUsers 
@@ -646,7 +646,7 @@ public:
     {
         std::unique_lock<std::mutex> uLock(m_mtx);
         auto iterMutex = FindSlot(value);
-        NICKSV_ASSERT(iterMutex != m_aValueMutexes.end(), INVALID_VALUE_ERROR_TEXT);
+        NICKSV_ASSERT(iterMutex != m_listValueMutexes.end(), INVALID_VALUE_ERROR_TEXT);
         LeaveSlotAndUnlock(iterMutex);
         if(m_listValueMutexes.empty())
             m_cvEmptyListWaiter.notify_one();
@@ -673,6 +673,7 @@ public:
     /**
      * @brief Unlocks all values except given one.
      * 
+     * @details
      * For noexcept verison see UnlockAllNoExcept().
      * 
      * @param keepLockedValue value to keep locked

@@ -2,6 +2,7 @@
  * @file
  * @brief Useful type traits metafunctions.
  * 
+ * @details
  * Some new traits and traits 
  * pulled from higher std version
 */
@@ -30,6 +31,12 @@ namespace std
 
     template<typename Type>
     using remove_cv_t = typename std::remove_cv<Type>::type;
+
+    template< bool B, typename T, typename F >
+    using conditional_t = typename std::conditional<B,T,F>::type;
+    
+    template<typename T>
+    using decay_t = typename std::decay<T>::type;    
 }
 #endif
 
@@ -80,11 +87,6 @@ namespace details
 template<typename CharT>
 struct is_char : details::is_char_helper<std::remove_cv_t<CharT>> {};
 
-#ifdef __cpp_variable_templates
-template< class T >
-constexpr static bool is_char_v = is_char<T>::value;
-#endif
-
 
 
 template<typename T, typename = void>
@@ -102,8 +104,19 @@ struct is_equality_comparable<T,
 };
 
 
+template<typename T1, typename T2, typename... Types>
+struct are_all_same : std::integral_constant<bool, std::is_same<T1, T2>::value && are_all_same<T2, Types...>::value> {};
+
+
+template<typename T1, typename T2>
+struct are_all_same<T1, T2> : std::is_same<T1, T2> {};
+
+
 
 #ifdef __cpp_variable_templates
+template< class T >
+constexpr static bool is_char_v = is_char<T>::value;
+
 template<class T>
 constexpr static bool is_equality_comparable_v = is_equality_comparable<T>::value;
 #endif

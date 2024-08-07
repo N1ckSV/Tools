@@ -5,6 +5,7 @@
 
 
 #include <cstring>
+#include <future>
 
 
 #include "TypeTraits.h"
@@ -48,15 +49,39 @@ template <> std::string inline basic_string_convert<const volatile char, char>(c
 
 
 
+namespace details
+{
+    template<class  > struct _is_reference_wrapper : std::false_type {};
+    template<class T> struct _is_reference_wrapper<std::reference_wrapper<T>> : std::true_type {};
 
+    template<class T> struct _remove_reference_wrapper { using type = T; };
+    template<class T> struct _remove_reference_wrapper<std::reference_wrapper<T>> { using type = T; };
 
+    template<class T> using _remove_reference_wrapper_t = typename _remove_reference_wrapper<T>::type;
 
+}
 
+template<typename T, 
+        typename V = typename std::conditional_t<
+        details::_is_reference_wrapper<std::decay_t<T>>::value,
+        details::_remove_reference_wrapper_t<std::decay_t<T>>&,
+        std::decay_t<T>
+        >>
+inline std::future<V> MakeReadyFuture(T&& value)
+{
+    std::promise<V> tmpPromise;
+    auto fut = tmpPromise.get_future();
+    tmpPromise.set_value(std::forward<T>(value));
+    return fut;
+}
 
-
-
-
-
+inline std::future<void> MakeReadyFuture()
+{
+    std::promise<void> tmpPromise;
+    auto future = tmpPromise.get_future();
+    tmpPromise.set_value();
+    return future;
+}
 
 
 

@@ -15,16 +15,18 @@
 
 
 //ASSERT STUFF (EXPECT is non-fatal one)
-#if defined(NDEBUG)
+#if !defined(NDEBUG) || defined(_DEBUG) 
     #include <assert.h>
     //cppcheck-suppress incorrectStringBooleanError 
     #define NICKSV_ASSERT(exp, msg) assert((exp) && (msg))
     #define NICKSV_EXPECT(exp, msg) do { if (!(exp)){fprintf(stderr, "%s failed in %s:%d\n", #exp, __FILE__, __LINE__);}} while(0)
+    #define NICKSV_DEBUG(...) (__VA_ARGS__)
+    #define _NICKSV_DEBUG
 #else
     #define NICKSV_ASSERT(exp, msg) (void(0))
     #define NICKSV_EXPECT(exp, msg) (void(0))
+    #define NICKSV_DEBUG(...)       (void(0))
 #endif
-
 
 
 #if (__cplusplus >= CXX14_VERSION)

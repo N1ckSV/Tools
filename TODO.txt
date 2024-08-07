@@ -1,2 +1,4 @@
 
-- Upgrade DynamicValueLock to lock multiple values
+- Upgrade DynamicValueLock to lock multiple values, also to have preallocated values.
+
+- Add unique_lock analog to ValueLock

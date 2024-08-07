@@ -658,8 +658,7 @@ constexpr inline bool type_integrity_assert_virtual()
  * depend on integrity of Type
  * (e.g. number or sizes of class members).
  * And if someone changed members of Type,
- * this assertion failed. For example,
- * functions that are serializing Type.
+ * this assertion failed (e.g functions that are serializing Type)
  * 
  * @tparam Type type to check
  * @tparam TypeIdentity special entity, that holds member and base types, can be:
@@ -669,7 +668,7 @@ constexpr inline bool type_integrity_assert_virtual()
  * @tparam additionalSize optional value, specify it (empirically)
  * if assertion fails but shouldn't or if your class Type has custon alignment
  * 
- * @example
+ * For example:
  * @code{.cpp} 
  * 
  * class NoBases {
@@ -755,7 +754,7 @@ constexpr inline bool type_integrity_assert_virtual()
  * @tparam Type type to check
  * @tparam Size implied size of Type (DO NOT USE sizeof(Type) here) 
  * 
- * @example
+ * For example:
  * @code{.cpp} 
  *  
  * class MyType1
@@ -815,7 +814,7 @@ constexpr inline bool type_integrity_assert()
  * @tparam Type type to check
  * @tparam Size implied size of Type (DO NOT USE sizeof(Type) here) 
  * 
- * @example
+ * For example:
  * @code{.cpp} 
  *  
  * class MyType1
