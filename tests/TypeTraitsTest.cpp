@@ -1,6 +1,4 @@
 
-#define NDEBUG
-
 #define TEST_SETW_VALUE 65
 
 #define TEST_IGNORE_PRINT_ON_SUCCESS

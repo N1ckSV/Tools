@@ -21,13 +21,15 @@
 //   in Debug mode
 
 #ifndef NICKSV_NOT_NULL_IGNORE
-    #ifdef NDEBUG
+    #ifndef NDEBUG
         #ifdef NICKSV_NOT_NULL_IGNORE_DEBUG
             #define NICKSV_NOT_NULL_IGNORE
         #endif
     #else
         #ifdef NICKSV_NOT_NULL_NOT_IGNORE_RELEASE
+            #ifndef NOT_NULL_USE_EXCEPTIONS
             #define NOT_NULL_USE_EXCEPTIONS
+            #endif
         #else
             #define NICKSV_NOT_NULL_IGNORE
         #endif

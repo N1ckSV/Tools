@@ -1,7 +1,12 @@
 
-#define TEST_IGNORE_PRINT_ON_SUCCESS
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <utility>
+#include <unordered_set>
 
-#define NDEBUG
+
+#define TEST_IGNORE_PRINT_ON_SUCCESS
 
 #define TEST_SETW_VALUE 65
 
@@ -10,18 +15,11 @@
 #include "ValueLock.h"
 #include "Testing.h"
 
-#include <iostream>
-#include <vector>
-#include <thread>
-#include <utility>
-#include <unordered_set>
-
-
 
 constexpr static size_t threadC = 10;
 
-using VLock = NickSV::Tools::ValueLock<uint32_t, threadC>;
-using DyVLock = NickSV::Tools::DynamicValueLock<uint32_t>;
+//using VLock = NickSV::Tools::ValueLock<uint32_t, threadC>;
+//using DyVLock = NickSV::Tools::DynamicValueLock<uint32_t>;
 
 enum CallType
 {
@@ -63,7 +61,7 @@ static bool CheckTracing(const Tracer& trace)
         if(soloLockedNow < 0)
             return false;
 
-        if(set.find(iter.base()) != set.end())
+        if(set.find(&(*iter)) != set.end())
             continue;
 
         auto next = iter + 1;
@@ -96,7 +94,7 @@ static bool CheckTracing(const Tracer& trace)
                (iter2->type != UNLOCK))
                     return false;
             --soloLockedNow;
-            set.insert(iter2.base());
+            set.insert(&(*iter2));
             break;
         }
         if(old != soloLockedNow)
@@ -142,7 +140,7 @@ int VL_test_same_v()
     {
         threads[i] = std::thread([&vLock, &vlTrace, value, i]()
         {
-            NickSV::Tools::ValueLockGuard<decltype(vLock)> vLockGuard(vLock, value);
+            NickSV::Tools::ValueLockGuard<LockT> vLockGuard(vLock, value);
 			vlTrace.push_back({LOCK, i, value});
             std::this_thread::sleep_for(milliseconds((rand() % 200) + 50));
 			vlTrace.push_back({UNLOCK, i, value});
@@ -172,7 +170,7 @@ int VL_test_diff_v()
     {
         threads[i] = std::thread([&vLock, &vlTrace, &inputMutex, i]()
         { 
-            NickSV::Tools::ValueLockGuard<decltype(vLock)> vLockGuard(vLock, i);
+            NickSV::Tools::ValueLockGuard<LockT> vLockGuard(vLock, i);
             inputMutex.lock();
             vlTrace.push_back({LOCK, i, i});
             inputMutex.unlock();
@@ -205,7 +203,7 @@ int VL_test_rand_v()
 		uint32_t i = static_cast<uint32_t>(rand() % threadC);
         threads[iq] = std::thread([&vLock, &vlTrace, &inputMutex, iq, i]()
         { 
-            NickSV::Tools::ValueLockGuard<decltype(vLock)> vLockGuard(vLock, i);
+            NickSV::Tools::ValueLockGuard<LockT> vLockGuard(vLock, i);
             inputMutex.lock();
             vlTrace.push_back({LOCK, iq, i});
             inputMutex.unlock();
@@ -290,6 +288,7 @@ int VL_test_all2()
 
 int main()
 {
+    using namespace NickSV::Tools;
     Tracer testTracer = { //VALID TRACER
         {LOCK,8,6}, {LOCK,1,0}, {UNLOCK,1,0}, {UNLOCK,8,6},  {LOCK_ALL,0,2}, {UNLOCK_ALL,0,2}, 
         {LOCK_ALL,5,4}, {UNLOCK_ALL_KEEP,5,4},  {UNLOCK,5,4},  {LOCK_ALL,0,1}, {UNLOCK_ALL,0,1},
@@ -300,29 +299,31 @@ int main()
 
     TEST_VERIFY(CheckTracingTest(testTracer));
 
-    TEST_VERIFY(VL_test_same_v<VLock>());
+    typedef ValueLock<uint32_t, threadC> Value_Lock;
+
+    TEST_VERIFY(VL_test_same_v<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_same_v<VLock>());
+    TEST_VERIFY(VL_test_same_v<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_same_v<DyVLock>());
+    TEST_VERIFY(VL_test_same_v<DynamicValueLock<uint32_t>>());
     //
-    TEST_VERIFY(VL_test_diff_v<VLock>());
+    TEST_VERIFY(VL_test_diff_v<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_diff_v<DyVLock>());
+    TEST_VERIFY(VL_test_diff_v<DynamicValueLock<uint32_t>>());
     //
-    TEST_VERIFY(VL_test_rand_v<VLock>());
+    TEST_VERIFY(VL_test_rand_v<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_rand_v<DyVLock>());
+    TEST_VERIFY(VL_test_rand_v<DynamicValueLock<uint32_t>>());
     //
-    TEST_VERIFY(VL_test_all1<VLock>());
+    TEST_VERIFY(VL_test_all1<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_all1<DyVLock>());
+    TEST_VERIFY(VL_test_all1<DynamicValueLock<uint32_t>>());
     //
-    TEST_VERIFY(VL_test_all2<VLock>());
+    TEST_VERIFY(VL_test_all2<Value_Lock>());
     //
-    TEST_VERIFY(VL_test_all2<DyVLock>());
+    TEST_VERIFY(VL_test_all2<DynamicValueLock<uint32_t>>());
     
-    std::cout << '\n' << NickSV::Tools::Testing::TestsFailed << " subtests failed\n";
+    std::cout << '\n' << Testing::TestsFailed << " subtests failed\n";
     
-    return NickSV::Tools::Testing::TestsFailed;
+    return Testing::TestsFailed;
 }

@@ -121,7 +121,7 @@ public:
         }
 
         std::mutex Mutex;
-        ValueType Value;
+        ValueType Value = ValueType();
         uint32_t RefCount = 0;
     };
 

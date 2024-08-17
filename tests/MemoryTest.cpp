@@ -3,7 +3,8 @@
 
 #define NOT_NULL_USE_EXCEPTIONS //we cant catch assert anyways 
 
-#define NDEBUG
+
+#define NICKSV_NOT_NULL_NOT_IGNORE_RELEASE
 
 #define TEST_SETW_VALUE 65
 

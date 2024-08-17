@@ -23,9 +23,9 @@
 
 
 
-#ifndef __cpp_variable_templates // I hope traits helper types ( std::<trait>_t ) appeared with this feature =)
 namespace std
 {
+    #ifndef __cpp_variable_templates // I hope traits helper types ( std::<trait>_t ) appeared with this feature =)
     template<bool cond, typename Type = void>
     using enable_if_t = typename std::enable_if<cond, Type>::type;
 
@@ -36,13 +36,10 @@ namespace std
     using conditional_t = typename std::conditional<B,T,F>::type;
     
     template<typename T>
-    using decay_t = typename std::decay<T>::type;    
-}
-#endif
+    using decay_t = typename std::decay<T>::type; 
+    #endif
 
-#ifndef __cpp_lib_remove_cvref
-namespace std
-{
+    #ifndef __cpp_lib_remove_cvref
     template<class T>
     struct remove_cvref
     {
@@ -50,8 +47,16 @@ namespace std
     };
     template<class T>
     using remove_cvref_t = typename remove_cvref<T>::type;
+    #endif
+
+    #ifndef __cpp_lib_void_t
+    template<typename... Ts>
+    struct make_void { using type = void; };
+    
+    template<typename... Ts>
+    using void_t = typename make_void<Ts...>::type;
+    #endif
 }
-#endif
 
 
 namespace NickSV 
@@ -113,13 +118,25 @@ struct are_all_same<T1, T2> : std::is_same<T1, T2> {};
 
 
 
+template<typename, typename = void>
+struct is_type_complete : std::false_type {};
+
+template<typename T>
+struct is_type_complete<T, std::void_t<decltype(sizeof(T))>> : std::true_type {};
+
 #ifdef __cpp_variable_templates
 template< class T >
-constexpr static bool is_char_v = is_char<T>::value;
+INLINE_SINCE_CPP17 constexpr bool is_char_v = is_char<T>::value;
 
 template<class T>
-constexpr static bool is_equality_comparable_v = is_equality_comparable<T>::value;
+INLINE_SINCE_CPP17 constexpr bool is_equality_comparable_v = is_equality_comparable<T>::value;
+
+template<typename T>
+INLINE_SINCE_CPP17 constexpr bool is_type_complete_v = is_type_complete<T>::value;
 #endif
+
+
+
 
 
 

@@ -35,6 +35,14 @@
 #define CONSTEXPR_SINCE_CPP14
 #endif
 
+#ifdef __cpp_inline_variables
+#define INLINE_SINCE_CPP17 inline
+#else
+#define INLINE_SINCE_CPP17
+#endif
+
+
+
 #if defined(__GNUC__)
 #define COMPILER_AWARE_VALUE(GNU_VAL, MSVC_VAL, OTHER_VAL) GNU_VAL
 #elif defined(_MSC_VER)
@@ -147,6 +155,9 @@
 #define NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 #undef  NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 #endif
+
+
+#define while_limit(cond, maxIters) for (uint64_t iters = 0; (iters < maxIters) && (cond); ++iters)
 
 
 
