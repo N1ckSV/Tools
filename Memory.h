@@ -5,7 +5,10 @@
 
 #include "Definitions.h"
 
+#include "TypeTraits.h"
+
 #include <stdexcept>
+#include <memory>
 
 // • NICKSV_NOT_NULL_IGNORE - if defined, 
 //   NotNull<T> is just an empty template (using NotNull<T> = T) 
@@ -45,10 +48,10 @@
 #include <algorithm>    // for forward
 #include <cstddef>      // for ptrdiff_t, nullptr_t, size_t
 #include <system_error> // for hash
-#include <type_traits>  // for enable_if_t, is_convertible, is_assignable
 #include <utility>
 
 #endif // NICKSV_NOT_NULL_IGNORE
+
 
 
 
@@ -234,14 +237,14 @@ public:
     [[nodiscard]] explicit operator const pointer_type&() const noexcept { return m_ptr; }
 
     template <class U = pointer_type>
-    constexpr auto operator->() const noexcept(noexcept(Get())) 
+    constexpr auto operator->() const
     -> typename std::enable_if<!std::is_same<U, void*>::value, GetReturnType>::type
     { 
         return Get(); 
     }
 
     template <class U = pointer_type>
-    [[nodiscard]] constexpr auto operator*() const noexcept(noexcept(*Get()))
+    [[nodiscard]] constexpr auto operator*() const
     -> typename std::enable_if<!std::is_same<U , void*>::value, element_type>::type&
     {
         return *Get();
@@ -537,6 +540,36 @@ struct hash<NickSV::Tools::NotNull<PtrT, PtrTraits> >
 #endif // NICKSV_NOT_NULL_IGNORE
 
 
+
+namespace NickSV {
+namespace Tools {
+
+
+template<class T, class... Args>
+inline auto MakeUnique(Args&&... args)
+-> std::enable_if_t<!std::is_array<T>::value, std::unique_ptr<T>>
+{
+    #ifdef __cpp_lib_make_unique
+    return std::make_unique<T>(std::forward<Args>(args)...);
+    #else
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    #endif
+}
+
+
+template<class T, class... Args>
+inline auto MakeShared(Args&&... args)
+-> std::enable_if_t<!std::is_array<T>::value, std::shared_ptr<T>>
+{
+    #ifdef __cpp_lib_make_shared
+    return std::make_shared<T>(std::forward<Args>(args)...);
+    #else
+    return std::shared_ptr<T>(new T(std::forward<Args>(args)...));
+    #endif
+}
+
+
+}}
 
 
 

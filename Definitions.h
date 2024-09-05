@@ -42,6 +42,15 @@
 #endif
 
 
+#ifdef __cpp_if_consteval
+#define STATIC_IF consteval
+#elif defined(__cpp_if_constexpr)
+#define STATIC_IF constexpr
+#else
+#define STATIC_IF 
+#endif
+
+
 
 #if defined(__GNUC__)
 #define COMPILER_AWARE_VALUE(GNU_VAL, MSVC_VAL, OTHER_VAL) GNU_VAL
