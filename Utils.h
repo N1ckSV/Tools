@@ -21,6 +21,19 @@ namespace Tools {
 
 
 
+template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+CharT* MutableStringData(std::basic_string<CharT, Traits, Allocator>& str)
+{
+#if __cplusplus >= CXX17_VERSION
+    return str.data();
+#else
+    return &(str[0]);
+#endif
+}
+
+
+
+
 
 
 
@@ -44,7 +57,6 @@ template <> std::string inline basic_string_convert<               char, char>(c
 template <> std::string inline basic_string_convert<         const char, char>(char const * pcszToConvert) { return pcszToConvert; };
 template <> std::string inline basic_string_convert<      volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
 template <> std::string inline basic_string_convert<const volatile char, char>(char const * pcszToConvert) { return pcszToConvert; };
-
 
 
 

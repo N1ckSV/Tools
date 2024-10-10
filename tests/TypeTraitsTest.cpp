@@ -21,10 +21,10 @@ class DoNotHaveEqualOp
 {
 };
 
-static bool operator==(const HaveEqualOp&, 
+bool operator==(const HaveEqualOp&, 
                 const HaveEqualOp&) {return true;}
 
-static bool operator==(const DoNotHaveEqualOp&, 
+bool operator==(const DoNotHaveEqualOp&, 
                 const DoNotHaveEqualOp&) = delete;
 
 template<class T>

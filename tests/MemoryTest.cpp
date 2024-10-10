@@ -122,7 +122,7 @@ int NotNull_test()
 		pVariable = nullptr;
 		NT::NotNull<decltype(pVariable)> notNull2(pVariable);
 	}
-	catch(const NT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException&) { result = true; };
 	TEST_CHECK_STAGE(result);
 	
 
@@ -174,7 +174,7 @@ int NotNull_smart_copyable_test()
 		pVariable = nullptr;
 		NT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
 	}
-	catch(const NT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException&) { result = true; };
 	TEST_CHECK_STAGE(result);
 
 
@@ -246,7 +246,7 @@ int NotNull_smart_moveonly_test()
 		pVariable = nullptr;
 		NT::NotNull<decltype(pVariable)> notNull2(std::move(pVariable));
 	}
-	catch(const NT::NotNullException& e) { result = true; };
+	catch(const NT::NotNullException&) { result = true; };
 	TEST_CHECK_STAGE(result);
 
 

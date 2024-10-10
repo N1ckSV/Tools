@@ -154,6 +154,11 @@
 #define DECLARE_RULE_OF_5_VIRTUAL_DEFAULT(ClassName) \
         DECLARE_RULE_OF_5_DEFAULT(ClassName, virtual) 
 
+#define DECLARE_MOVE_ONLY(ClassName) \
+        DECLARE_COPY_DELETE(ClassName); \
+        DECLARE_MOVE_DEFAULT(ClassName, NOTHING)
+
+
 
 
 #ifndef NICKSV_TYPE_INTEGRITY_NO_ASSERTION

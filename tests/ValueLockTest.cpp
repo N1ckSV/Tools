@@ -163,8 +163,7 @@ int VL_test_diff_v()
     LockT vLock;
 	Tracer vlTrace; 
 	vlTrace.reserve(2*threadC);
-	srand(static_cast<uint32_t>(time(0)));	
-    uint32_t value = 10;
+	srand(static_cast<uint32_t>(time(0)));
 	std::mutex inputMutex;
 	for (uint32_t i = 0; i < threadC; ++i)
     {
@@ -193,7 +192,6 @@ int VL_test_rand_v()
 	using namespace std::chrono;
     std::thread threads[threadC];
     LockT vLock;
-    uint32_t value = 10;
 	std::mutex inputMutex;
 	Tracer vlTrace; 
 	vlTrace.reserve(2*threadC);
@@ -228,7 +226,6 @@ int VL_test_all1()
 	using namespace std::chrono;
     std::thread threads[threadC];
     LockT vLock;
-    uint32_t value = 10;
 	std::mutex inputMutex;
 	Tracer vlTrace; 
 	vlTrace.reserve(3*threadC);
@@ -263,7 +260,6 @@ int VL_test_all2()
 	using namespace std::chrono;
     std::thread threads[threadC];
     LockT vLock;
-    uint32_t value = 10;
 	Tracer vlTrace; 
 	vlTrace.reserve(2*threadC);
 	srand(static_cast<uint32_t>(time(0)));	
