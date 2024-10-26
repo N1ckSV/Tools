@@ -4,8 +4,8 @@
 #pragma once
 
 
-#include "Definitions.h"
-#include "Utils.h"
+#include "NickSV/Tools/Definitions.h"
+#include "NickSV/Tools/Utils.h"
 
 
 #include <condition_variable>
@@ -744,6 +744,8 @@ private:
     volatile bool m_bIsLockingAll = false;
 };
 
+template<typename>
+struct is_value_lock;
 
 template<typename LockType>
 struct is_value_lock : std::false_type {};
@@ -767,8 +769,10 @@ template<typename LockT>
 class ValueLockGuard final
 {
 public:
-    static_assert(is_value_lock<LockT>::value, "LockT should be ValueLock/DynamicValueLock/FakeValueLock");
-    using LockType = LockT;
+    using LockType = typename std::remove_cvref<LockT>::type;
+
+    static_assert(is_value_lock<LockType>::value, "LockT should be ValueLock/DynamicValueLock/FakeValueLock");
+
     using ValueType = typename LockType::ValueType;
 
     ValueLockGuard() = delete;
@@ -787,7 +791,10 @@ template<typename LockT>
 class ValueLockAllGuard final
 {
 public:
-    using LockType = LockT;
+    using LockType = typename std::remove_cvref<LockT>::type;
+
+    static_assert(is_value_lock<LockType>::value, "LockT should be ValueLock/DynamicValueLock/FakeValueLock");
+
     using ValueType = typename LockType::ValueType;
     
 

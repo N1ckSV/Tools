@@ -3,7 +3,8 @@
 #include <thread>
 #include <cstring>
 #include <vector>
-#include "..\ValueLock.h"
+
+#include "NickSV/Tools/ValueLock.h"
 
 template<class LockT, size_t threadC>
 void value_lock_example()
@@ -162,7 +163,7 @@ struct A
 {
     int val;
     explicit A(int v) : val(v) {};
-    inline static int count = 0;
+    static int count;
     void throwFunc()
     {
         count++;
@@ -170,6 +171,8 @@ struct A
             throw 5;
     }
 };
+
+int A::count = 0;
 
 int main(int argc, char *argv[])
 {

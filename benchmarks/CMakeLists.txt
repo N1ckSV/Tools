@@ -15,16 +15,6 @@ find_package(benchmark REQUIRED
     HINTS ${benchmark_DIR_HINTS})
 
 
-message(STATUS "\n\n")
-message(STATUS "C++ Standart: ${CMAKE_CXX_STANDARD}")
-message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
-message(STATUS "C++ Make program: ${CMAKE_MAKE_PROGRAM}")
-message(STATUS "C++ Make generator: ${CMAKE_GENERATOR}")
-message(STATUS "C++ Make generator: ${CMAKE_GENERATOR}")
-message(STATUS "C++ Make generator instance: ${CMAKE_GENERATOR_INSTANCE}")
-message(STATUS "C++ Make generator platform: ${CMAKE_GENERATOR_PLATFORM}")
-message(STATUS "C++ Make generator toolset: ${CMAKE_GENERATOR_TOOLSET}")
-message(STATUS "\n\n")
 #-----------------------------------------------
 #-----------------------------------------------
 #-----------------------------------------------
@@ -47,6 +37,10 @@ add_executable(NickSVToolsBenchmark
 #    "$<BUILD_INTERFACE:${NickSVChat_EXTERNAL_INCLUDE_DIRS}>"
 #    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 #)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmarks")
+
+target_include_directories(NickSVToolsBenchmark  PUBLIC "${NickSVTools_INCLUDE_DIR}")
 
 target_link_libraries(NickSVToolsBenchmark
     benchmark::benchmark

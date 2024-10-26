@@ -3,9 +3,8 @@
 #pragma once
 
 
-#include "Definitions.h"
-
-#include "TypeTraits.h"
+#include "NickSV/Tools/Definitions.h"
+#include "NickSV/Tools/TypeTraits.h"
 
 #include <stdexcept>
 #include <memory>

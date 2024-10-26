@@ -5,8 +5,8 @@
 
 
 
-#include "TypeTraits.h"
-#include "Testing.h"
+#include "NickSV/Tools/TypeTraits.h"
+#include "NickSV/Tools/Testing.h"
 
 
 

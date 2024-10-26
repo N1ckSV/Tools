@@ -10,13 +10,14 @@
 
 #define TEST_IGNORE_PRINT_ON_SUCCESS
 
-#include "Definitions.h"
-#include "Memory.h"
-#include "Testing.h"
-
 
 #include <memory>
 #include <sstream>
+
+
+#include "NickSV/Tools/Definitions.h"
+#include "NickSV/Tools/Memory.h"
+#include "NickSV/Tools/Testing.h"
 
 namespace NT = NickSV::Tools;
 

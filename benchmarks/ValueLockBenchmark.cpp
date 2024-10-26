@@ -1,12 +1,12 @@
 
 
-#include "..\ValueLock.h"
+#include "NickSV/Tools/ValueLock.h"
 
 
 #include <thread>
 #include <math.h>
 
-#include <benchmark\benchmark.h>
+#include <benchmark/benchmark.h>
 
 #pragma optimize("g", off)
 double  long_operation(unsigned long long coef)

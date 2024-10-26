@@ -8,7 +8,7 @@
 #include <future>
 
 
-#include "TypeTraits.h"
+#include "NickSV/Tools/TypeTraits.h"
 
 
 

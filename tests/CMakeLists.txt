@@ -16,16 +16,13 @@ add_executable(
     TypeTraitsTest.cpp
     )
 
-set_target_properties(MemoryTest ValueLockTest TypeTraitsTest
-    PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests"
-        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests"
-        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests"
-)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
-target_include_directories(MemoryTest  PUBLIC ..)
-target_include_directories(ValueLockTest  PUBLIC  ..)
-target_include_directories(TypeTraitsTest  PUBLIC  ..)
+target_include_directories(MemoryTest PUBLIC "${NickSVTools_INCLUDE_DIR}")
+target_include_directories(ValueLockTest PUBLIC "${NickSVTools_INCLUDE_DIR}")
+target_include_directories(TypeTraitsTest PUBLIC "${NickSVTools_INCLUDE_DIR}")
+
+message(STATUS "NickSVTools_INCLUDE_DIR: ${NickSVTools_INCLUDE_DIR}")
 
 add_test(NAME MemoryTest COMMAND MemoryTest)
 #For error code 255 increase timeout below

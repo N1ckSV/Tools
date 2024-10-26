@@ -12,8 +12,8 @@
 
 #define TEST_IGNORE_PRINT_ON_SUCCESS
 
-#include "ValueLock.h"
-#include "Testing.h"
+#include "NickSV/Tools/ValueLock.h"
+#include "NickSV/Tools/Testing.h"
 
 
 constexpr static size_t threadC = 10;

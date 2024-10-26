@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+
+include(${CMAKE_CURRENT_LIST_DIR}/NickSVTools.cmake)
+
+check_required_components(NickSVTools)
+
+get_target_property(NickSVTools_INCLUDE_DIRS NickSVTools INTERFACE_INCLUDE_DIRECTORIES)
+
+
+set(NickSVTools_FOUND 1)

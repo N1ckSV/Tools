@@ -47,4 +47,6 @@ _deps
 [Bb][Ii][Nn]/
 [Bb][Uu][Ii][Ll][Dd]/
 [Ii][Nn][Ss][Tt][Aa][Ll][Ll]/
-goxygen-docs
+
+doc/doxy/html
+doc/doxy/latex
