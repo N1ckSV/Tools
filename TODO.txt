@@ -2,3 +2,17 @@
 - Upgrade DynamicValueLock to lock multiple values, also to have preallocated values.
 
 - Add unique_lock analog to ValueLock
+
+
+Matrix:
+    basic ops
+    make Row also functional
+    add noexcepts
+    remade mult-tion via algorithm
+    reverse matrix
+    determinant
+    rang
+    LU
+    QR
+    eigenvalues and eigenvectors
+    singular

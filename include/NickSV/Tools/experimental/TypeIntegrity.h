@@ -18,6 +18,8 @@ namespace NickSV
 {
 namespace Tools
 {
+namespace Experimental
+{
 
 template<class ValueType>
 constexpr ValueType _Max_(const ValueType val1, const ValueType val2)
@@ -608,6 +610,15 @@ struct CompareTypes<Type1, Type2, 0, additionalSize>
 };
 
 
+
+} //END OF EXPERIMENTAL
+
+
+
+
+
+
+
 //////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////
@@ -620,12 +631,12 @@ constexpr inline bool type_integrity_assert()
 {
 #ifndef NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 
-    using builded_type = BuildType_t<MembersT, BasesT>;
+    using builded_type = Experimental::BuildType_t<MembersT, BasesT>;
 
-    static_assert(!has_bases<BasesT>::value || is_child_of<Type, BasesT>::value, 
+    static_assert(!Experimental::has_bases<BasesT>::value || Experimental::is_child_of<Type, BasesT>::value, 
         "Type integrity assertion failed: Type is not inherited from bases inside BasesT. Define NICKSV_TYPE_INTEGRITY_NO_ASSERTION to disable assertion.");
 
-    static_assert(CompareTypes<Type, builded_type, _Max_(additionalSize, alignof(Type)), additionalSize>::value,
+    static_assert(Experimental::CompareTypes<Type, builded_type, Experimental::_Max_(additionalSize, alignof(Type)), additionalSize>::value,
         "Type integrity assertion failed: Type has a size different from its TypeIdentity (MembersT and BasesT). Define NICKSV_TYPE_INTEGRITY_NO_ASSERTION to disable assertion.");
 #endif
     return true;
@@ -637,15 +648,15 @@ constexpr inline bool type_integrity_assert_virtual()
 {
 #ifndef NICKSV_TYPE_INTEGRITY_NO_ASSERTION
 
-    using builded_type = BuildTypeVirtual_t<MembersT, BasesT>;
+    using builded_type = Experimental::BuildTypeVirtual_t<MembersT, BasesT>;
 
     static_assert(std::is_polymorphic<Type>::value, 
         "Type integrity assertion failed: Type is not polymorphic, so use type_integrity_assert(). Define NICKSV_TYPE_INTEGRITY_NO_ASSERTION to disable assertion.");
 
-    static_assert(!has_bases<BasesT>::value || is_child_of<Type, BasesT>::value, 
+    static_assert(!Experimental::has_bases<BasesT>::value || Experimental::is_child_of<Type, BasesT>::value, 
         "Type integrity assertion failed: Type is not inherited from bases inside BasesT. Define NICKSV_TYPE_INTEGRITY_NO_ASSERTION to disable assertion.");
 
-    static_assert(CompareTypes<Type, builded_type, _Max_(additionalSize, alignof(Type)), additionalSize>::value,
+    static_assert(Experimental::CompareTypes<Type, builded_type, Experimental::_Max_(additionalSize, alignof(Type)), additionalSize>::value,
         "Type integrity assertion failed: Type has a size different from its TypeIdentity (MembersT and BasesT). Define NICKSV_TYPE_INTEGRITY_NO_ASSERTION to disable assertion.");
 #endif
     return true;
@@ -717,8 +728,8 @@ template<typename Type, typename TypeIdentity, size_t additionalSize = 0>
 constexpr inline bool type_integrity_assert()
 {
     return type_integrity_assert<Type, 
-        typename DeleteInheritance<TypeIdentity>::type, 
-        typename DeleteMembers<TypeIdentity>::type,
+        typename Experimental::DeleteInheritance<TypeIdentity>::type, 
+        typename Experimental::DeleteMembers<TypeIdentity>::type,
         additionalSize>();
 }
 
@@ -734,8 +745,8 @@ template<typename Type, typename TypeIdentity, size_t additionalSize = 0>
 constexpr inline bool type_integrity_assert_virtual()
 {
     return type_integrity_assert_virtual<Type, 
-        typename DeleteInheritance<TypeIdentity>::type, 
-        typename DeleteMembers<TypeIdentity>::type,
+        typename Experimental::DeleteInheritance<TypeIdentity>::type, 
+        typename Experimental::DeleteMembers<TypeIdentity>::type,
         additionalSize>();
 }
 
@@ -853,6 +864,10 @@ constexpr inline bool type_integrity_assert_virtual()
 {
     return type_integrity_assert<Type, Size>();
 }
+
+
+
+
 
 
 }} /*END OF NAMESPACES*/

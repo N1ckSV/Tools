@@ -8,7 +8,6 @@
 
 #include <benchmark/benchmark.h>
 
-#pragma optimize("g", off)
 double  long_operation(unsigned long long coef)
 {
   double sum = 0;
@@ -37,7 +36,7 @@ double value_lock_example_same_values()
     {
         threads[i] = std::thread([&vLock, value, i, &sums]()
         {
-            NickSV::Tools::ValueLockGuard<std::remove_reference<decltype(vLock)>::type> g(vLock, value);
+            NickSV::Tools::ValueLockGuard<typename std::remove_reference<decltype(vLock)>::type> g(vLock, value);
             benchmark::DoNotOptimize(sums[i] = long_operation(2));
         });
     }
@@ -61,15 +60,15 @@ double value_lock_example_different_values()
     LockType vLock;
     typename LockType::ValueType value = 10;
 	
-	for (size_t i = 0; i < threadC; ++i)
+	for (unsigned int i = 0; i < threadC; ++i)
     {
         threads[i] = std::thread([&vLock, i, &sums]()
         { 
-            NickSV::Tools::ValueLockGuard<std::remove_reference<decltype(vLock)>::type> g(vLock, i);
+            NickSV::Tools::ValueLockGuard<typename std::remove_reference<decltype(vLock)>::type> g(vLock, i);
             benchmark::DoNotOptimize(sums[i] += long_operation(2));
         });
     }
-    for (size_t i = 0; i < threadC; ++i)
+    for (unsigned int i = 0; i < threadC; ++i)
 	{
         threads[i].join();
         benchmark::DoNotOptimize(sum += sums[i]);
@@ -88,13 +87,13 @@ double value_lock_example_random_values()
     LockType vLock;
     typename LockType::ValueType value = 10;
 	
-	srand(time(0));
+    srand(static_cast<unsigned int>(time(0)));
 	for (size_t iq = 0; iq < threadC; ++iq)
     {
 		int i = rand() % threadC;
         threads[iq] = std::thread([&vLock, iq, i, &sums]()
         { 
-            NickSV::Tools::ValueLockGuard<std::remove_reference<decltype(vLock)>::type> g(vLock, i);
+            NickSV::Tools::ValueLockGuard<typename std::remove_reference<decltype(vLock)>::type> g(vLock, i);
             benchmark::DoNotOptimize(sums[i] += long_operation(2));
         });
     }
@@ -117,7 +116,7 @@ double value_lock_all_example()
     double sum = 0;
     LockType vLock;
     typename LockType::ValueType value = 10;
-    srand(time(0));
+    srand(static_cast<unsigned int>(time(0)));
 
     for (size_t iq = 0; iq < threadC; ++iq)
     {

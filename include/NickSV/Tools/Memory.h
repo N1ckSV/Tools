@@ -555,6 +555,17 @@ inline auto MakeUnique(Args&&... args)
     #endif
 }
 
+template<class T>
+inline auto MakeUnique(size_t size)
+-> std::enable_if_t<std::is_array<T>::value, std::unique_ptr<T>>
+{
+    #ifdef __cpp_lib_make_unique
+    return std::make_unique<T>(size);
+    #else
+    return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]);
+    #endif
+}
+
 
 template<class T, class... Args>
 inline auto MakeShared(Args&&... args)

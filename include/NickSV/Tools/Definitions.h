@@ -44,10 +44,16 @@
 
 #ifdef __cpp_if_consteval
 #define STATIC_IF consteval
+#define CONSTEVAL_IF consteval
+#define CONSTEXPR_IF constexpr
 #elif defined(__cpp_if_constexpr)
 #define STATIC_IF constexpr
+#define CONSTEVAL_IF
+#define CONSTEXPR_IF constexpr
 #else
 #define STATIC_IF 
+#define CONSTEVAL_IF
+#define CONSTEXPR_IF
 #endif
 
 

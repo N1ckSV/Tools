@@ -25,11 +25,13 @@ void value_lock_example()
         });
     }
     for (size_t i = 0; i < threadC; ++i)
+    {
         threads[i].join();
+    }
 	
 	std::mutex inputMutex;
 	std::cout << std::endl << std::endl << "Diff values: " << std::endl;
-	for (size_t i = 0; i < threadC; ++i)
+	for (unsigned int i = 0; i < threadC; ++i)
     {
         threads[i] = std::thread([&vLock, &inputMutex, i]()
         { 
@@ -47,7 +49,7 @@ void value_lock_example()
 	{
         threads[i].join();
 	}
-	srand(time(0));
+	srand(static_cast<unsigned int>(time(0)));
 	std::cout << std::endl << std::endl << 
         "Random values.\nIf some thread starts to work on value X, it has to finish it first before next thread starts to work on value X:" 
         << std::endl;
@@ -77,7 +79,7 @@ void value_lock_all_example()
     std::thread threads[threadC];
     LockT vLock;
     uint32_t value = 10;
-    srand(time(0));
+    srand(static_cast<unsigned int>(time(0)));
 
     std::cout << "\n\nRandom values with lock_all() -> unlock_all(val) -> unlock(val)\n";
     for (size_t iq = 0; iq < threadC; ++iq)

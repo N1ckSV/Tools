@@ -79,6 +79,22 @@ namespace details
 
 
 /**
+ * @struct is_multiplicable
+ * @brief Metafunction trait to check if 
+ *        types are multiplicable
+ */
+template <class T1, class T2>
+struct is_multiplicable
+{
+    template<class TestT1, class TestT2>
+    static auto mult_test(const TestT1* v1, const TestT2* v2) -> decltype((*v1) * (*v2), char(0));
+    static long int&  mult_test(...);
+    
+    static constexpr bool value = (std::is_same<decltype(mult_test(std::declval<T1*>(), std::declval<T2*>())), char>::value);
+};
+
+
+/**
  * @struct is_char
  * @brief Metafunction trait to check if 
  * the type is character-like.
